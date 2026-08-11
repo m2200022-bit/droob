@@ -8090,36 +8090,47 @@ function _deXLVouchers(q,pf){
 // ══ العهد ══
 function _deXLCustodies(q,pf){
   var rows=_deFilter(CUSTODIES,q,pf);
-  var html='<table class="de-xl-tbl"><thead><tr>'
-    +'<th style="width:40px">#</th><th>رقم العهدة</th><th>التاريخ</th><th>الإرجاع</th><th>البرنامج</th><th>المستلم</th><th>المبلغ</th><th>المُصفّى</th><th>المتبقي</th><th>الحالة</th><th>استرجاع</th><th style="width:90px;text-align:center">إجراءات</th>'
-    +'</tr></thead><tbody>';
+  if(!rows.length)return _Empty(q?'لا نتائج للبحث عن "'+q+'"':'العهد فارغة');
   var stL={open:'🟢مفتوح',partial:'🟡جزئي',settled:'⚫مغلق',archived:'📦مؤرشف'};
+  var h=_TH(['#','رقم العهدة','التاريخ','الإرجاع','البرنامج','المستلم','المبلغ','المُصفّى (قابل للتعديل)','المتبقي','الحالة','سند الاسترجاع','إجراءات']);
+  var b='<tbody>';
   rows.forEach(function(c,i){
     var spent=(c.items||c.invoices||[]).reduce(function(s,x){return s+(x.amount||0);},0);
-    var rem=Math.max(0,(c.amount||0)-spent);
-    var pct=c.amount>0?Math.round(spent/c.amount*100):0;
+    var amt=c.cashAmt||c.amount||0;
+    var rem=Math.max(0,amt-spent);
+    var pct=amt>0?Math.round(spent/amt*100):0;
     var bar='<div style="display:flex;align-items:center;gap:3px"><div style="width:40px;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div style="width:'+pct+'%;height:100%;background:'+(pct>80?'#dc2626':pct>50?'#f59e0b':'#059669')+';border-radius:2px"></div></div><span style="font-size:9px;color:#64748b">'+pct+'%</span></div>';
     var hidden=!!c.hiddenFromReports;
-    html+='<tr'+(hidden?' class="hidden-row"':'')+' style="background:'+(i%2?'#fef9f0':'#fff')+'">';
-    html+='<td style="padding:4px 6px;color:#94a3b8;font-size:10px;text-align:center;border:1px solid #e2e8f0">'+(i+1)+'</td>';
-    html+=_deCell(c.num,'custodies',c.id,'num');
-    html+=_deCell(c.date,'custodies',c.id,'date');
-    html+=_deCell(c.returnDate||'','custodies',c.id,'returnDate');
-    html+=_deCell(c.prog,'custodies',c.id,'prog',{display:gpn(c.prog)});
-    html+=_deCell(c.recipient||'','custodies',c.id,'recipient');
-    html+='<td style="padding:0;border:1px solid #e2e8f0"><span class="de-cell-view" onclick="deCellClick(this,\'custodies\',\''+c.id+'\',\'amount\',\''+encodeURIComponent(c.amount||0)+'\')"><b style="direction:ltr;display:block">'+fn(c.amount||0)+'</b></span></td>';
-    html+='<td style="padding:5px 7px;border:1px solid #e2e8f0"><b style="color:#dc2626;direction:ltr;display:block">'+fn(spent)+'</b>'+bar+'</td>';
-    html+='<td style="padding:5px 7px;border:1px solid #e2e8f0"><b style="color:'+(rem>0?'#059669':'#64748b')+';direction:ltr;display:block">'+fn(rem)+'</b></td>';
-    html+=_deCell(c.status||'open','custodies',c.id,'status',{display:stL[c.status]||c.status||'—'});
-    html+='<td style="padding:5px 7px;border:1px solid #e2e8f0;font-size:10px;color:#059669;font-family:monospace">'+(c.returnReceiptNum||'—')+'</td>';
-    html+=_deActCell('custodies',c.id,c.num+' — '+fn(c.amount),hidden);
-    html+='</tr>';
+    var bg=i%2?'#fef9f0':'#fff';
+    b+='<tr'+(hidden?' class="de-hidden-row"':'')+' style="background:'+bg+'">';
+    b+='<td style="padding:4px 6px;color:#94a3b8;font-size:10px;text-align:center;border:1px solid #e2e8f0">'+(i+1)+'</td>';
+    b+=_deCell(c.num,'custodies',c.id,'num');
+    b+=_deCell(c.date,'custodies',c.id,'date');
+    b+=_deCell(c.returnDate||'','custodies',c.id,'returnDate');
+    b+=_deCell(c.prog,'custodies',c.id,'prog',{display:gpn(c.prog)});
+    b+=_deCell(c.recipient||'','custodies',c.id,'recipient');
+    // المبلغ — قابل للتعديل
+    b+='<td style="padding:0;border:1px solid #e2e8f0"><span class="de-cell-view de-cell-inp-wrap" data-type="custodies" data-id="'+c.id+'" data-field="amount" data-val="'+encodeURIComponent(amt)+'" onclick="deCellClickEv(this)" title="اضغط لتعديل المبلغ"><b style="color:#374151;direction:ltr;display:block">'+fn(amt)+'</b></span></td>';
+    // المُصفّى — زر لفتح نافذة الفواتير + قيمة مباشرة
+    b+='<td style="padding:3px 6px;border:1px solid #e2e8f0;vertical-align:middle">';
+    b+='<div style="display:flex;align-items:center;gap:4px">';
+    b+='<b style="color:#dc2626;font-family:monospace;direction:ltr">'+fn(spent)+'</b>';
+    b+='<button class="de-inv-edit-btn" data-cid="'+c.id+'" title="تعديل الفواتير / المصفّى" style="background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:4px;padding:1px 6px;cursor:pointer;font-size:10px;font-family:Tajawal,Arial;font-weight:700;white-space:nowrap">✏️ فواتير</button>';
+    b+='</div>';
+    b+=bar;
+    b+='</td>';
+    // المتبقي — يُحسب تلقائياً
+    b+='<td style="padding:5px 7px;border:1px solid #e2e8f0"><b style="color:'+(rem>0?'#059669':'#64748b')+';direction:ltr;display:block;font-family:monospace">'+fn(rem)+'</b></td>';
+    // الحالة — قابلة للتعديل
+    b+=_deCell(c.status||'open','custodies',c.id,'status',{display:stL[c.status]||c.status||'—'});
+    b+='<td style="padding:5px 7px;border:1px solid #e2e8f0;font-size:10px;color:#059669;font-family:monospace">'+(c.returnReceiptNum||'—')+'</td>';
+    b+=_deActCell('custodies',c.id,c.num+' — '+fn(amt),hidden);
+    b+='</tr>';
   });
-  html+='</tbody></table>';
-  return{count:rows.length,html:html};
+  b+='</tbody>';
+  return _Wrap(rows.length,h+b);
 }
 
-// ══ سندات القبض ══
 function _deXLReceipts(q,pf){
   var rows=_deFilter(RECEIPTS,q,pf);
   var total=rows.reduce(function(s,r){return s+r.amount;},0);
@@ -8595,6 +8606,223 @@ function saveCustody(){
     if(typeof showSaveInd==='function')showSaveInd('✅ تم صرف عهدة الأصول '+cNum2);
   }
 }
+
+// ══ فتح نافذة تعديل فواتير العهدة من محرر البيانات ══
+function deOpenCustodyInvoices(cid){
+  var c=(CUSTODIES||[]).find(function(x){return x.id===cid;});
+  if(!c){alert('العهدة غير موجودة');return;}
+  _deEditType='custodies';_deEditId=cid;
+  var items=c.items||c.invoices||[];
+  var amt=c.cashAmt||c.amount||0;
+  var spent=items.reduce(function(s,x){return s+(x.amount||0);},0);
+  var rem=Math.max(0,amt-spent);
+  var fs2='padding:6px 8px;border:1.5px solid #d1d5db;border-radius:6px;font-family:Tajawal,Arial;font-size:12px;box-sizing:border-box;width:100%';
+
+  var mhtml='';
+  // إحصائيات سريعة
+  mhtml+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">';
+  mhtml+='<div style="background:#f0f9ff;border-radius:8px;padding:10px;text-align:center"><div style="font-size:14px;font-weight:700;color:#0f2d5e;font-family:monospace">'+fn(amt)+'</div><div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial">المبلغ الأصلي</div></div>';
+  mhtml+='<div style="background:#fef2f2;border-radius:8px;padding:10px;text-align:center"><div id="de-inv-spent" style="font-size:14px;font-weight:700;color:#dc2626;font-family:monospace">'+fn(spent)+'</div><div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial">إجمالي الفواتير</div></div>';
+  mhtml+='<div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center"><div id="de-inv-rem" style="font-size:14px;font-weight:700;color:#059669;font-family:monospace">'+fn(rem)+'</div><div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial">المتبقي</div></div>';
+  mhtml+='</div>';
+
+  // ترويسة
+  mhtml+='<div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:5px;padding:5px 8px;background:#f8fafc;border-radius:6px;margin-bottom:6px;font-size:11px;font-weight:700;color:#64748b;font-family:Tajawal,Arial">';
+  mhtml+='<span>📝 البيان</span><span>💰 المبلغ (ر.ق)</span><span>📅 التاريخ</span><span></span></div>';
+  mhtml+='<div id="de-inv-list" style="min-height:40px">';
+  if(!items.length){
+    mhtml+='<div style="text-align:center;padding:14px;color:#94a3b8;font-size:12px;font-family:Tajawal,Arial">لا توجد فواتير — أضف فاتورة جديدة</div>';
+  } else {
+    items.forEach(function(inv,j){mhtml+=_deInvRow(j,inv,fs2);});
+  }
+  mhtml+='</div>';
+  mhtml+='<button onclick="deAddInvRow()" style="width:100%;margin-top:8px;padding:8px;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ إضافة فاتورة</button>';
+  mhtml+='<input type="hidden" id="de-inv-amt" value="'+amt+'">';
+  mhtml+='<input type="hidden" id="de-inv-status" value="'+(c.status||'open')+'">';
+
+  document.getElementById('de-modal-title').textContent='📋 فواتير عهدة: '+c.num+' — '+(c.recipient||'');
+  document.getElementById('de-modal-body').innerHTML=mhtml;
+  document.getElementById('de-modal').style.display='block';
+  document.body.style.overflow='hidden';
+}
+
+function _deInvRow(j,inv,fs2){
+  fs2=fs2||'padding:6px 8px;border:1.5px solid #d1d5db;border-radius:6px;font-family:Tajawal,Arial;font-size:12px;box-sizing:border-box;width:100%';
+  return '<div id="de-inv-row-'+j+'" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:5px;margin-bottom:5px;align-items:center">'
+    +'<input type="text" placeholder="بيان الفاتورة" value="'+((inv&&inv.desc)||'')+'" class="de-inv-desc" style="'+fs2+'">'
+    +'<input type="number" placeholder="المبلغ" value="'+((inv&&inv.amount)||'')+'" class="de-inv-amount" oninput="deUpdateInvTotals()" style="'+fs2+';direction:ltr">'
+    +'<input type="date" value="'+((inv&&inv.date)||td())+'" class="de-inv-date" style="'+fs2+'">'
+    +'<button class="de-inv-del-row" data-row="'+j+'" style="background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5;border-radius:5px;padding:5px 8px;cursor:pointer;white-space:nowrap">✕</button>'
+    +'</div>';
+}
+
+function deAddInvRow(){
+  var list=document.getElementById('de-inv-list');
+  if(!list)return;
+  var j=list.querySelectorAll('[id^="de-inv-row-"]').length;
+  var d=document.createElement('div');
+  d.innerHTML=_deInvRow(j,null);
+  list.appendChild(d.firstChild);
+}
+
+function deUpdateInvTotals(){
+  var total=0;
+  document.querySelectorAll('.de-inv-amount').forEach(function(inp){total+=parseFloat(inp.value)||0;});
+  var amt=parseFloat((document.getElementById('de-inv-amt')||{}).value)||0;
+  var rem=Math.max(0,amt-total);
+  var spentEl=document.getElementById('de-inv-spent');if(spentEl)spentEl.textContent=fn(total);
+  var remEl=document.getElementById('de-inv-rem');if(remEl){remEl.textContent=fn(rem);remEl.style.color=rem>0?'#059669':'#dc2626';}
+}
+
+// ── حفظ الفواتير من النافذة ──
+function deSaveRecord(){
+  var type=_deEditType,id=_deEditId;
+  if(!type||!id)return;
+  if(type==='custodies'){
+    var c=(CUSTODIES||[]).find(function(x){return x.id===id;});
+    if(!c){alert('السجل غير موجود');return;}
+    // جمع الفواتير
+    var list=document.getElementById('de-inv-list');
+    if(list){
+      var descs=list.querySelectorAll('.de-inv-desc');
+      var amts=list.querySelectorAll('.de-inv-amount');
+      var dates=list.querySelectorAll('.de-inv-date');
+      var newItems=[];
+      descs.forEach(function(_,j){
+        var amt2=parseFloat(amts[j].value)||0;
+        if(amt2>0||descs[j].value.trim()){
+          newItems.push({id:gid(),desc:descs[j].value.trim(),amount:amt2,date:dates[j].value,ts:new Date().toISOString()});
+        }
+      });
+      c.items=newItems;
+      c.invoices=newItems;
+      // تحديث الحالة تلقائياً
+      var spent2=newItems.reduce(function(s,x){return s+(x.amount||0);},0);
+      var amt3=c.cashAmt||c.amount||0;
+      if(spent2>=amt3)c.status='settled';
+      else if(spent2>0)c.status='partial';
+      else c.status='open';
+      c._edited=true;c._editedAt=new Date().toISOString();c._editedBy=CU?CU.name:'';
+      if(typeof log==='function')log('تعديل فواتير عهدة',c.num+' — '+c.recipient,id);
+    }
+  } else {
+    // Handle other types from the modal
+    var g=function(elId){var el=document.getElementById(elId);return el?el.value.trim():null;};
+    var gn=function(elId){var el=document.getElementById(elId);return el?parseFloat(el.value)||0:0;};
+    var arr;
+    if(type==='entries')arr=ENTRIES;
+    else if(type==='vouchers')arr=VOUCHERS;
+    else if(type==='receipts')arr=RECEIPTS;
+    else if(type==='rewards')arr=REWARDS;
+    else if(type==='programs')arr=PROGRAMS;
+    if(arr){
+      var item=arr.find(function(x){return x.id===id;});
+      if(item){
+        if(g('ef-date'))item.date=g('ef-date');
+        if(g('ef-prog'))item.prog=g('ef-prog');
+        if(document.getElementById('ef-amount'))item.amount=gn('ef-amount');
+        if(g('ef-status'))item.status=g('ef-status');
+        var desc=g('ef-desc');if(desc){item.desc=desc;item.being=desc;}
+        item._edited=true;item._editedAt=new Date().toISOString();item._editedBy=CU?CU.name:'';
+      }
+    }
+  }
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function')cloudSave(true);
+  deCloseModal();deRender();
+  if(typeof renderDashboard==='function')renderDashboard();
+  if(typeof showSaveInd==='function')showSaveInd('✅ تم حفظ التعديلات على Firebase');
+}
+
+// ══ تحسين deDelete — حذف فوري مع تحديث كامل ══
+// Override the existing deDelete to also handle hiddenFromReports properly
+var _origDeDelete = typeof deDelete==='function' ? deDelete : null;
+function deDelete(type,id,label){
+  if(!isAdm()){alert('للمدير فقط');return;}
+  if(!confirm('⚠️ حذف نهائي من النظام وFirebase\n\n'+label+'\n\nسيُحذف السجل وجميع القيود المرتبطة به.\nلا يمكن التراجع!'))return;
+
+  if(type==='entries')  ENTRIES=(ENTRIES||[]).filter(function(x){return x.id!==id;});
+  else if(type==='vouchers'){
+    var v=(VOUCHERS||[]).find(function(x){return x.id===id;});
+    if(v){
+      ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.ref===v.num&&e.src==='voucher');});
+      CUSTODIES=(CUSTODIES||[]).filter(function(c){return c.voucherRef!==v.num;});
+    }
+    VOUCHERS=(VOUCHERS||[]).filter(function(x){return x.id!==id;});
+  }
+  else if(type==='custodies'){
+    var c=(CUSTODIES||[]).find(function(x){return x.id===id;});
+    if(c){
+      ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.ref===c.num&&(e.src==='custody'||e.src==='custody-return'));});
+      RECEIPTS=(RECEIPTS||[]).filter(function(r){return r.custodyRef!==c.num;});
+    }
+    CUSTODIES=(CUSTODIES||[]).filter(function(x){return x.id!==id;});
+  }
+  else if(type==='receipts'){
+    var rec=(RECEIPTS||[]).find(function(x){return x.id===id;});
+    if(rec)ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.ref===rec.num&&e.type==='in');});
+    RECEIPTS=(RECEIPTS||[]).filter(function(x){return x.id!==id;});
+  }
+  else if(type==='rewards'){
+    var rw=(REWARDS||[]).find(function(x){return x.id===id;});
+    if(rw)ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.ref===rw.num&&e.src==='reward');});
+    REWARDS=(REWARDS||[]).filter(function(x){return x.id!==id;});
+  }
+  else if(type==='programs') PROGRAMS=(PROGRAMS||[]).filter(function(x){return x.id!==id;});
+  else if(type==='transfers'){
+    var tr=(TRANSFERS||[]).find(function(x){return x.id===id;});
+    if(tr){
+      if(tr.vouNum)VOUCHERS=(VOUCHERS||[]).filter(function(vv){return vv.num!==tr.vouNum;});
+      if(tr.recNum)RECEIPTS=(RECEIPTS||[]).filter(function(rr){return rr.num!==tr.recNum;});
+      ENTRIES=(ENTRIES||[]).filter(function(e){return e.ref!==tr.vouNum&&e.ref!==tr.recNum;});
+    }
+    TRANSFERS=(TRANSFERS||[]).filter(function(x){return x.id!==id;});
+  }
+
+  if(typeof log==='function')log('حذف نهائي — '+type,label,id);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function')cloudSave(true);
+  deRender();
+  if(typeof renderDashboard==='function')renderDashboard();
+  if(typeof showSaveInd==='function')showSaveInd('🗑️ تم الحذف من النظام وFirebase فوراً');
+}
+
+// ══ تحسين deToggleHide — إخفاء مباشر مع Firebase ══
+function deToggleHide(type,id){
+  var arr;
+  if(type==='entries')   arr=ENTRIES;
+  else if(type==='vouchers')  arr=VOUCHERS;
+  else if(type==='custodies') arr=CUSTODIES;
+  else if(type==='receipts')  arr=RECEIPTS;
+  else if(type==='rewards')   arr=REWARDS;
+  else return;
+  var item=arr.find(function(x){return x.id==id;});
+  if(!item)return;
+  item.hiddenFromReports=!item.hiddenFromReports;
+  if(typeof log==='function')log(item.hiddenFromReports?'إخفاء من التقارير':'إظهار في التقارير',type+' — '+id,id);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof renderDashboard==='function')renderDashboard();
+  deRender();
+  if(typeof showSaveInd==='function')showSaveInd(item.hiddenFromReports?'🙈 تم الإخفاء من التقارير':'👁️ تم الإظهار في التقارير');
+}
+
+// ── تفويض حدث زر الفواتير ──
+document.addEventListener('click',function(e){
+  var invBtn=e.target.closest?e.target.closest('.de-inv-edit-btn'):null;
+  var delRow=e.target.closest?e.target.closest('.de-inv-del-row'):null;
+  if(invBtn){
+    e.preventDefault();e.stopPropagation();
+    deOpenCustodyInvoices(invBtn.dataset.cid);
+  }
+  if(delRow){
+    e.preventDefault();e.stopPropagation();
+    var rowId='de-inv-row-'+delRow.dataset.row;
+    var row=document.getElementById(rowId);
+    if(row)row.remove();
+    deUpdateInvTotals();
+  }
+},true);
 
 </script>
 </body>
