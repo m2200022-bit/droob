@@ -53,8 +53,9 @@ body{font-family:'Tajawal',Arial;background:var(--bg);color:var(--txt);direction
 .bi{padding:10px 13px;border-bottom:1px solid #f4f6f8;font-size:12px}.bi:last-child{border:none}
 .bi-t{font-weight:700;color:var(--txt);margin-bottom:2px}.bi-s{color:var(--txt3);font-size:11px}
 .btag{display:inline-block;border-radius:5px;padding:1px 7px;font-size:10px;font-weight:700;margin-top:3px}
-.page{display:none;padding:16px 20px}.page.active{display:block}
-.ph{background:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;box-shadow:0 1px 6px #0001;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.page{display:none;padding:8px 16px}
+#pages{flex:1;overflow-y:auto}.page.active{display:block}
+.ph{background:#fff;border-radius:10px;padding:10px 16px;margin-bottom:10px;box-shadow:0 1px 6px #0001;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .ph-t{font-size:14px;font-weight:800;color:var(--pr)}.ph-s{font-size:11px;color:var(--txt3);margin-top:3px}
 .kg{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:11px;margin-bottom:14px}
 .kc{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 6px #0001;border-right:4px solid}
@@ -415,7 +416,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
     <div class="sc" style="padding:16px">
       <div class="fg"><label class="fl">🔴 من البرنامج *</label><select class="fs" id="tr-from-prog" onchange="updateTransferBalance()"></select></div>
       <div id="tr-from-bal" style="background:#f0f4f8;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#0f2d5e;font-weight:700;margin:-4px 0 10px"></div>
-      <div class="fg"><label class="fl">🟢 إلى البرنامج *</label><select class="fs" id="tr-to-prog"></select></div>
+      <div class="fg"><label class="fl">🟢 إلى البرنامج / الحساب *</label><select class="fs" id="tr-to-prog"></select></div>
       <div class="fr"><div class="fg"><label class="fl">المبلغ *</label><input class="fi" type="number" id="tr-amount" min="0.01" step="0.01" placeholder="0.00" oninput="updateTransferBalance()"></div><div class="fg"><label class="fl">التاريخ *</label><input class="fi" type="date" id="tr-date"></div></div>
       <div class="fg"><label class="fl">سبب التحويل *</label><input class="fi" type="text" id="tr-reason" placeholder="سبب التحويل..."></div>
       <div class="fg"><label class="fl">طريقة الدفع</label><select class="fs" id="tr-method"><option>تحويل داخلي</option><option>نقداً</option><option>تحويل بنكي</option></select></div>
@@ -624,8 +625,10 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
         <option value="rpt_all_vouchers">🧾 تقرير شامل — سندات الصرف</option>
         <option value="rpt_all_receipts">📥 تقرير شامل — سندات القبض</option>
         <option value="rpt_all_combined">🗂️ التقرير الجامع الشامل (الكل)</option>
+        <option value="vendor_settle" style="font-weight:700">📋 تصفية المتعهد</option>
       </select>
       <select class="csel" id="rpt-prog"></select>
+      <select class="csel" id="rpt-vendor" style="display:none"><option value="">👤 جميع المتعهدين</option></select>
       <input class="ci" type="date" id="rpt-from"><input class="ci" type="date" id="rpt-to">
       <button class="fb" onclick="genReport();printReport()" style="background:#0f2d5e;color:#fff">🖨️ طباعة</button>
       <button class="fb" onclick="genReport();exportReportExcel()" style="background:#0a7c4e;color:#fff">📊 Excel</button>
@@ -867,9 +870,51 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
   <div class="mh"><span class="mt">🧾 إصدار سند صرف</span><button class="mx" onclick="closeOv('ov-voucher')">✕</button></div>
   <div class="err-box" id="vou-err"></div>
   <!-- حالة السند -->
-  <div style="background:#f0f4f8;border-radius:10px;padding:10px 14px;margin-bottom:12px">
-    <div style="font-weight:800;font-size:13px;color:var(--pr);margin-bottom:8px">📌 حالة السند <span style="font-weight:400;font-size:11px;color:var(--txt3)">(اختر حالة واحدة فقط)</span></div>
-    <div id="vou-ds-list"></div>
+  <!-- ══ خيار نوع السند: مباشر أو عهدة ══ -->
+  <div style="background:#f0f4f8;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+    <div style="font-weight:800;font-size:13px;color:var(--pr);margin-bottom:10px">📌 نوع السند</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <label id="vou-type-direct-lbl" onclick="vouSetType('direct')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #0f2d5e;border-radius:9px;cursor:pointer;background:#0f2d5e;color:#fff;font-weight:700;font-size:13px;font-family:Tajawal,Arial;transition:.15s">
+        <input type="radio" name="vou-type-radio" id="vou-type-direct" value="direct" checked style="display:none">
+        <span style="font-size:18px">💸</span>
+        <div><div>صرف مباشر</div><div style="font-size:10px;opacity:.8;font-weight:400">مصروف نهائي مباشر</div></div>
+      </label>
+      <label id="vou-type-custody-lbl" onclick="vouSetType('custody')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid #d1d5db;border-radius:9px;cursor:pointer;background:#fff;color:#374151;font-weight:700;font-size:13px;font-family:Tajawal,Arial;transition:.15s">
+        <input type="radio" name="vou-type-radio" id="vou-type-custody" value="custody" style="display:none">
+        <span style="font-size:18px">🗂️</span>
+        <div><div>صرف عهدة</div><div style="font-size:10px;color:#94a3b8;font-weight:400">تُسلَّم لمتعهد وتُصفَّى</div></div>
+      </label>
+    </div>
+    <!-- خيارات نوع العهدة — تظهر فقط عند اختيار عهدة ══ -->
+    <div id="vou-custody-opts" style="display:none;border-top:1px solid #e2e8f0;padding-top:10px">
+      <div style="font-size:11.5px;font-weight:700;color:#64748b;font-family:Tajawal,Arial;margin-bottom:7px">نوع العهدة:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px" id="vou-ds-list"></div>
+    </div>
+    <!-- حالة السند المباشر — قابلة للتعديل ══ -->
+    <div id="vou-direct-status-wrap" style="display:none;border-top:1px solid #e2e8f0;padding-top:10px">
+      <div style="font-size:11.5px;font-weight:700;color:#64748b;font-family:Tajawal,Arial;margin-bottom:7px">حالة الصرف:</div>
+      <select id="vou-direct-status" class="fi" style="max-width:250px">
+        <option value="done">✅ تم الصرف</option>
+        <option value="pending">⏳ معلق</option>
+        <option value="approved">📋 معتمد</option>
+        <option value="cancelled">🚫 ملغى</option>
+      </select>
+    </div>
+  </div>
+  <!-- ══ قسم المتعهد — يظهر فقط عند صرف عهدة ══ -->
+  <div id="vou-vendor-section" style="display:none;background:#fef9f0;border:1.5px solid #fcd34d;border-radius:10px;padding:12px 14px;margin-bottom:12px">
+    <div style="font-weight:800;font-size:13px;color:#b45309;margin-bottom:10px;font-family:Tajawal,Arial">👤 المتعهد</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px;font-family:Tajawal,Arial">اختر المتعهد من السجل *</label>
+        <select id="vou-vendor-sel" class="fi" onchange="vouVendorSelected()" style="background:#fff">
+          <option value="">— اختر المتعهد —</option>
+        </select>
+      </div>
+      <button onclick="goPage('vendors')" style="padding:9px 14px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;white-space:nowrap">+ تسجيل متعهد</button>
+    </div>
+    <div id="vou-vendor-info" style="display:none;margin-top:8px;background:#fff;border-radius:8px;padding:10px;font-size:12px;font-family:Tajawal,Arial;color:#374151;border:1px solid #e2e8f0"></div>
+    <div style="margin-top:8px;font-size:11px;color:#dc2626;font-family:Tajawal,Arial">⚠️ لا يُسمح بإنشاء عهدة لمتعهد غير مسجل في السجل</div>
   </div>
   <div class="fr">
     <div class="fr">
@@ -890,8 +935,42 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
   </div>
   <div id="vou-budget-warn" class="warn-box"></div>
   <div class="fr">
-    <div class="fg"><label class="fl">نقداً / شيك رقم</label><select class="fs" id="vou-mth"><option>نقداً</option><option>شيك</option><option>تحويل بنكي</option></select></div>
-    <div class="fg"><label class="fl">رقم المرجع</label><input class="fi" type="text" id="vou-ref"></div>
+    <div class="fg"><label class="fl">طريقة الدفع</label>
+      <select class="fs" id="vou-mth" onchange="vouUpdateFundOptions()">
+        <option value="نقداً">💵 نقداً</option>
+        <option value="تحويل بنكي">🏦 تحويل بنكي</option>
+        <option value="شيك">📄 شيك</option>
+        <option value="بطاقة">💳 بطاقة</option>
+        <option value="أخرى">📌 أخرى</option>
+      </select>
+    </div>
+    <div class="fg"><label class="fl">🏦 الصندوق / الحساب</label>
+      <select class="fi" id="vou-fund" style="background:#fff">
+        <option value="">— اختر الصندوق —</option>
+      </select>
+    </div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">رقم الشيك / المرجع</label><input class="fi" type="text" id="vou-ref"></div>
+    <div class="fg" id="vou-fund-bal-wrap" style="display:none">
+      <label class="fl">رصيد الصندوق المتاح</label>
+      <div id="vou-fund-bal" style="padding:8px 12px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;font-family:monospace;font-size:13px;font-weight:700;color:#059669">—</div>
+    </div>
+  </div>
+  <!-- ── نوعية الصرف ── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+    <div class="fg">
+      <label class="fl">🏷️ نوعية الصرف</label>
+      <select class="fi" id="vou-exp-type" onchange="vouExpTypeChange()" style="background:#fff">
+        <option value="">— اختر نوعية الصرف —</option>
+      </select>
+    </div>
+    <div class="fg" id="vou-exp-sub-wrap" style="display:none">
+      <label class="fl">📂 التصنيف الفرعي</label>
+      <select class="fi" id="vou-exp-sub" style="background:#fff">
+        <option value="">— اختر التصنيف —</option>
+      </select>
+    </div>
   </div>
   <div class="fg"><label class="fl">وذلك مقابل *</label><input class="fi" type="text" id="vou-being"></div>
   <!-- صندوق معلومات ديناميكي يعكس حالة السند المختارة -->
@@ -1247,7 +1326,23 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
   </div>
 
   </div>
-</div></div>
+</div><!-- ── نافذة إلغاء سند معتمد ── -->
+<div id="ov-cancel-vou" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto">
+  <div style="max-width:500px;margin:60px auto;background:#fff;border-radius:12px;font-family:Tajawal,Arial;direction:rtl">
+    <div style="background:#dc2626;color:#fff;padding:12px 18px;border-radius:12px 12px 0 0;font-weight:900;font-size:14px">⚠️ إلغاء سند مالي</div>
+    <div style="padding:20px">
+      <div id="cancel-vou-info" style="background:#fef2f2;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;color:#374151"></div>
+      <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">سبب الإلغاء *</label>
+      <textarea id="cancel-vou-reason" rows="3" placeholder="أدخل سبب الإلغاء..." style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box;resize:none"></textarea>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+        <button onclick="document.getElementById('ov-cancel-vou').style.display='none'" style="padding:9px 18px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px">إلغاء</button>
+        <button onclick="executeCancelVoucher()" style="padding:9px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">🚫 تأكيد الإلغاء</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
 
 
 
@@ -1257,6 +1352,112 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 
 
 
+
+<!-- ══════════════ FUNDS & ACCOUNTS PAGE ══════════════ -->
+<div class="page" id="pg-funds" style="padding:16px">
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">💰 الصناديق والحسابات المالية</h2>
+        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">إدارة الصناديق النقدية والحسابات البنكية وتتبع أرصدتها</p>
+      </div>
+      <button onclick="addFund()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ إضافة صندوق / حساب</button>
+    </div>
+    <!-- إحصائيات -->
+    <div id="funds-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px"></div>
+    <!-- قائمة الصناديق -->
+    <div id="funds-list"></div>
+    <!-- حركات الصندوق -->
+    <div id="fund-transactions" style="margin-top:16px"></div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<!-- ══════════════ PROGRAM SETTLEMENT PAGE ══════════════ -->
+<div class="page" id="pg-prog-settle" style="padding:8px 16px">
+  <div style="max-width:1000px;margin:0 auto">
+    <div style="background:linear-gradient(135deg,#0f2d5e,#1e56a0);color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:15px;font-weight:900;font-family:Tajawal,Arial">⚖️ إغلاق وتسوية البرنامج</div>
+        <div style="font-size:11px;opacity:.8;margin-top:2px;font-family:Tajawal,Arial">عملية مالية موثقة — تنشئ قيود تحويل فعلية بين البرنامج والحساب البنكي</div>
+      </div>
+      <select id="ps-prog-sel" onchange="renderProgSettle()" style="padding:8px 12px;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;border:none;min-width:200px">
+        <option value="">— اختر البرنامج —</option>
+      </select>
+    </div>
+    <div id="prog-settle-body"></div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<!-- ══════════════ VENDORS PAGE ══════════════ -->
+<div class="page" id="pg-vendors" style="padding:16px">
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">👤 سجل المتعهدين</h2>
+        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">يجب تسجيل المتعهد أولاً قبل إصدار أي عهدة — لا يُسمح بإدخال اسم يدوياً</p>
+      </div>
+      <button onclick="openAddVendor()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ تسجيل متعهد جديد</button>
+    </div>
+    <!-- بحث -->
+    <input id="vendor-search" type="text" placeholder="🔍 بحث بالاسم أو الهاتف أو الهوية..." oninput="renderVendors()"
+      style="width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:9px;font-family:Tajawal,Arial;font-size:13px;margin-bottom:14px;box-sizing:border-box;direction:rtl">
+    <div id="vendors-list"></div>
+  </div>
+</div>
+<!-- نافذة إضافة متعهد -->
+<div id="ov-vendor" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto">
+  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;font-family:Tajawal,Arial;direction:rtl">
+    <div style="background:#0f2d5e;color:#fff;padding:13px 18px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between;align-items:center">
+      <span id="vendor-modal-title" style="font-weight:900;font-size:14px">👤 تسجيل متعهد جديد</span>
+      <button onclick="document.getElementById('ov-vendor').style.display='none'" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:3px 10px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px">الاسم الكامل *</label>
+          <input id="vnd-name" type="text" placeholder="اسم المتعهد كاملاً" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box"></div>
+        <div><label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px">رقم الهاتف *</label>
+          <input id="vnd-phone" type="tel" placeholder="05xxxxxxxx" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box;direction:ltr"></div>
+        <div><label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px">رقم الهوية / الإقامة</label>
+          <input id="vnd-id" type="text" placeholder="رقم الهوية" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box;direction:ltr"></div>
+        <div><label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px">الجهة / الوظيفة</label>
+          <input id="vnd-org" type="text" placeholder="جهة العمل أو الوظيفة" style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box"></div>
+      </div>
+      <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:4px">ملاحظات</label>
+      <textarea id="vnd-note" rows="2" placeholder="أي ملاحظات..." style="width:100%;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box;resize:none"></textarea>
+      <div id="vnd-err" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;margin-top:10px;font-size:12px;color:#dc2626;font-family:Tajawal,Arial"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('ov-vendor').style.display='none'" style="padding:8px 18px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px">إلغاء</button>
+      <button onclick="saveVendor()" style="padding:8px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">💾 حفظ المتعهد</button>
+    </div>
+    <!-- البرامج -->
+    <div style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="font-family:Tajawal,Arial;font-size:14px;font-weight:900;color:#0f2d5e;margin:0">🏷️ البرامج وأرصدتها</h3>
+        <button onclick="renderProgramsInFunds()" style="padding:6px 12px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:7px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px">🔄 تحديث</button>
+      </div>
+      <div id="funds-programs-list"></div>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════ -->
+
+<!-- ══════════════ EXPENSE TYPES SETTINGS ══════════════ -->
+<div class="page" id="pg-settings-expense" style="padding:16px">
+  <div style="max-width:800px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">🏷️ إدارة نوعيات الصرف</h2>
+        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">إضافة وتعديل وتعطيل أنواع وتصنيفات المصروفات</p>
+      </div>
+      <button onclick="addExpType()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ إضافة نوع جديد</button>
+    </div>
+    <div id="expense-types-list"></div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════ -->
 
 <!-- ══════════════ DATA EDITOR PAGE ══════════════ -->
 <div class="page" id="pg-data-editor" style="padding:0">
@@ -1298,11 +1499,35 @@ var _fbReady=false,_applying=false,_lastKnownTotal=null,_lastHash=null,_saveT=nu
 window._droobReady=false;
 // ============================================================ STATE
 let ORG={name:'شركة دروب للخدمات السياحية',logo:null};
-let PROGRAMS=[{id:'p1',name:'لآلي الخير للفتيات',icon:'🏕️',color:'#0f2d5e',budget:50000,desc:''},{id:'p2',name:'برنامج الشفيع',icon:'🌟',color:'#0a7c4e',budget:30000,desc:''}];
+let PROGRAMS=[
+  {id:'p1',name:'لآلي الخير للفتيات',icon:'🏕️',color:'#0f2d5e',budget:50000,openingBalance:0,desc:''},
+  {id:'p2',name:'برنامج الشفيع',icon:'🌟',color:'#0a7c4e',budget:30000,openingBalance:0,desc:''}
+];
 const DEFAULT_USERS=[{u:'admin',p:'admin123',name:'المدير العام',role:'admin',progs:'all'},{u:'user1',p:'user1234',name:'مستخدم 1',role:'user',progs:'all'}];
 let USERS=[{u:'admin',p:'admin123',name:'المدير العام',role:'admin',progs:'all'},{u:'user1',p:'user1234',name:'مستخدم 1',role:'user',progs:'all'}];
 let IN_CATS=['مبيعات','رسوم ومستحقات','تحصيل ديون','تبرعات','إيرادات أخرى'];
-let OUT_CATS=['مطبوعات','مستلزمات أنشطة','تصاميم','مكافآت','تغذية','حجوزات','رواتب','إيجار','فواتير','صيانة','مواصلات','سلف','مصروفات أخرى'];
+let OUT_CATS=['تغذية','نثريات','مكافآت','مواصلات ونقل','إيجارات','مستلزمات البرامج','طباعة وإنتاج','جوائز وهدايا','خدمات وصيانة','اتصالات وتقنية','خدمات صحية وسلامة','إعلام وتسويق','فعاليات وأنشطة','رسوم ومصاريف إدارية','مصروفات مالية','مشتريات أخرى','أخرى'];
+
+// ══ نوعيات الصرف مع التصنيفات الفرعية ══
+let EXPENSE_TYPES = [
+  {id:'food',name:'تغذية',icon:'🍽️',subs:['وجبات','إفطار','غداء','عشاء','وجبات خفيفة','مياه','عصائر ومشروبات','فواكه','ضيافة غذائية','تموين غذائي','مستلزمات تقديم الطعام','بوفيه','وجبات الطلاب','وجبات المعلمين والمشرفين','أخرى']},
+  {id:'misc',name:'نثريات',icon:'📦',subs:['قرطاسية','أدوات مكتبية','أوراق','أحبار','أدوات نظافة','مستلزمات تشغيل','اتصالات','شحن','رسوم بسيطة','مشتريات طارئة','مستلزمات يومية','أخرى']},
+  {id:'reward',name:'مكافآت',icon:'🎖️',subs:['مكافآت المعلمين','مكافآت المشرفين','مكافآت المتعاونين','مكافآت العاملين','مكافآت المشاركين','حوافز','أخرى']},
+  {id:'transport',name:'مواصلات ونقل',icon:'🚌',subs:['نقل الطلاب','نقل المعلمين','نقل المشرفين','حافلات','سيارات','أجور سائقين','وقود','توصيل','أخرى']},
+  {id:'rent',name:'إيجارات',icon:'🏢',subs:['إيجار قاعة','إيجار مقر','إيجار ملعب','إيجار أجهزة','إيجار معدات','إيجار سيارات','إيجار حافلات','أخرى']},
+  {id:'supplies',name:'مستلزمات البرامج',icon:'📚',subs:['مصاحف','كتب','حقائب','أدوات تعليمية','أدوات تدريبية','مستلزمات الحلقات','مستلزمات الأنشطة','مستلزمات المسابقات','مستلزمات الطلاب','مستلزمات المعلمين','أخرى']},
+  {id:'print',name:'طباعة وإنتاج',icon:'🖨️',subs:['شهادات','بروشورات','منشورات','بنرات','لوحات','بطاقات','ملفات','دفاتر','مواد تعليمية','تصميم','تصوير','أخرى']},
+  {id:'prizes',name:'جوائز وهدايا',icon:'🏆',subs:['جوائز الطلاب','جوائز المسابقات','هدايا الطلاب','هدايا المعلمين','دروع','شهادات','تكريم','هدايا تذكارية','أخرى']},
+  {id:'services',name:'خدمات وصيانة',icon:'🔧',subs:['صيانة أجهزة','صيانة كهرباء','صيانة تكييف','صيانة أثاث','تنظيف','خدمات فنية','خدمات تقنية','دعم فني','أخرى']},
+  {id:'tech',name:'اتصالات وتقنية',icon:'💻',subs:['خطوط هاتف','إنترنت','شرائح','رسائل نصية','برامج وأنظمة','استضافة','نطاقات','خدمات إلكترونية','أجهزة وملحقات تقنية','أخرى']},
+  {id:'health',name:'خدمات صحية وسلامة',icon:'🏥',subs:['إسعافات أولية','مستلزمات صحية','مستلزمات سلامة','أدوات وقاية','خدمات صحية','أخرى']},
+  {id:'media',name:'إعلام وتسويق',icon:'📢',subs:['إعلانات','إعلانات إلكترونية','تصوير','فيديو','تصميم','تغطية إعلامية','نشر','لوحات إعلانية','أخرى']},
+  {id:'events',name:'فعاليات وأنشطة',icon:'🎪',subs:['تنظيم فعاليات','مسابقات','أنشطة طلابية','أنشطة ثقافية','أنشطة رياضية','حفلات ختامية','حفلات تكريم','مستلزمات الفعاليات','أخرى']},
+  {id:'admin',name:'رسوم ومصاريف إدارية',icon:'📋',subs:['رسوم حكومية','رسوم خدمات','رسوم تحويل','رسوم تسجيل','مصاريف إدارية','أخرى']},
+  {id:'finance',name:'مصروفات مالية',icon:'💳',subs:['رسوم بنكية','عمولات','مصاريف تحويل','مصاريف تحصيل','أخرى']},
+  {id:'purchases',name:'مشتريات أخرى',icon:'🛒',subs:['مشتريات عامة','أخرى']},
+  {id:'other',name:'أخرى',icon:'📌',subs:['أخرى']}
+];
 let ASSET_CATS=['رياضية','ضيافة','مطبوعات','إلكترونيات','أثاث','أخرى'];
 let ENTRIES=[],VOUCHERS=[],RECEIPTS=[],CUSTODIES=[],REWARDS=[];
 let ASSET_INV=[];   // مستودع الأصول {id,name,cat,totalQty,note,date}
@@ -1310,6 +1535,14 @@ let ASSET_OUTS=[];  // خروجيات {id,num,assetId,qty,recipient,phone,prog,o
 let TASKS=[],AUDIT=[];
 let BANK_TX=[]; // حركات الحساب البنكي اليدوية {id,date,type:'deposit'|'withdraw'|'fee',amount,desc,prog,method,ref,note,by,ts,auto,feeMonth}
 let BANK_SETTINGS={fee:10,openingBalance:0,openingDate:''};
+// ══ الصناديق والحسابات المالية ══
+let FUNDS=[
+  {id:'fund_bank',name:'الحساب البنكي',type:'bank',icon:'🏦',balance:0,active:true,desc:'الحساب البنكي الرئيسي للشركة — يستقبل أموال البرامج ويتم الإرجاع إليه'}
+];
+// ══ المتعهدون — سجل ثابت يُستخدم في العهد ══
+let VENDORS=[];
+// FUNDS locked status
+let FUNDS_LOCKED={};  // {fundId: {by, at, reason}}
 let SEQ={e:0,v:0,c:0,r:0,ao:0,rec:0,st:0};
 let CU=null,nextId=1;
 
@@ -1365,27 +1598,55 @@ const visP=()=>PROGRAMS.filter(p=>canSee(p.id));
 const isAdm=()=>CU&&CU.role==='admin';
 function log(a,d,r=''){AUDIT.unshift({ts:new Date().toISOString(),user:CU?CU.name:'',action:a,detail:d,ref:r});if(AUDIT.length>500)AUDIT.pop();cloudSave();}
 function progBal(pid){
-  // ══ الإيرادات وسندات القبض ══
-  // جميع القيود من نوع "in" ما عدا استرجاع العهد (لمنع الازدواجية)
-  const allIn = (ENTRIES||[]).filter(e=>e.prog===pid && e.type==='in' && !e.hiddenFromReports && e.src!=='custody-return');
-  const custodyReturns = (ENTRIES||[]).filter(e=>e.prog===pid && e.type==='in' && e.src==='custody-return' && !e.hiddenFromReports);
-  const inc = allIn.reduce((s,e)=>s+e.amount,0) + custodyReturns.reduce((s,e)=>s+e.amount,0);
+  // ══ الإيرادات ══
+  // جميع القيود "in" بما فيها استرجاعات العهد (الاسترجاع يُعيد المبلغ للرصيد)
+  const allIn = (ENTRIES||[]).filter(function(e){
+    return e.prog===pid && e.type==='in' && !e.hiddenFromReports && !e.cancelledRef;
+  });
+  const inc = allIn.reduce(function(s,e){return s+e.amount;},0);
 
-  // ══ إجمالي الصرف الفعلي ══
-  // سندات الصرف (غير المحوّلة لعهدة)
-  const cuVRefs = new Set((CUSTODIES||[]).filter(c=>c.voucherRef).map(c=>c.voucherRef));
-  const vTotal = (VOUCHERS||[]).filter(v=>v.prog===pid && !cuVRefs.has(v.num) && !v.hiddenFromReports).reduce((s,v)=>s+v.amount,0);
-  // العهد (بما فيها المحوّلة من سندات)
-  const cuTotal = (CUSTODIES||[]).filter(c=>c.prog===pid && !c.hiddenFromReports && !c.archived).reduce((s,c)=>s+c.amount,0);
-  // المكافآت
-  const rewTotal = (REWARDS||[]).filter(rw=>rw.prog===pid && !rw.hiddenFromReports).reduce((s,rw)=>s+rw.amount,0);
-  // المصروفات المباشرة (غير المرتبطة بعهدة أو سند)
-  const directExp = (ENTRIES||[]).filter(e=>e.prog===pid && e.type==='out' && !e.hiddenFromReports && e.src!=='voucher' && e.src!=='reward' && e.src!=='custody' && e.src!=='transfer').reduce((s,e)=>s+e.amount,0);
+  // ══ سندات الصرف المباشرة (غير المحوّلة لعهدة، وغير الملغاة) ══
+  const cuVRefs = new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
+  const vTotal = (VOUCHERS||[]).filter(function(v){
+    return v.prog===pid && !cuVRefs.has(v.num) && !v.hiddenFromReports && v.status!=='cancelled';
+  }).reduce(function(s,v){return s+v.amount;},0);
+
+  // ══ العهد — المنطق الصحيح لمنع الازدواجية ══
+  // العهد المفتوحة: يُحتسب مبلغها الأصلي (لم تُصفَّ بعد)
+  // العهد المغلقة: يُحتسب المصروف الفعلي فقط (ما أُنفق فعلاً)
+  // المبلغ المسترجع لا يُحتسب كمصروف (يعود للرصيد عبر "in")
+  var cuTotal = 0;
+  var cuSpent = 0; // المصروف الفعلي من العهد المغلقة
+  var cuOpen  = 0; // مبلغ العهد المفتوحة
+  (CUSTODIES||[]).forEach(function(c){
+    if(c.prog!==pid || c.hiddenFromReports || c.status==='cancelled') return;
+    var amt = c.cashAmt||c.amount||0;
+    var spent = (c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);
+    if(c.status==='settled'||c.status==='closed'){
+      // مغلقة: احسب المصروف الفعلي فقط
+      cuSpent += spent;
+    } else {
+      // مفتوحة: احسب المبلغ الأصلي (لأنه خرج من الرصيد)
+      cuOpen += amt;
+    }
+  });
+  cuTotal = cuSpent + cuOpen;
+
+  // ══ المكافآت ══
+  const rewTotal = (REWARDS||[]).filter(function(rw){
+    return rw.prog===pid && !rw.hiddenFromReports;
+  }).reduce(function(s,rw){return s+rw.amount;},0);
+
+  // ══ المصروفات المباشرة من القيود ══
+  const directExp = (ENTRIES||[]).filter(function(e){
+    return e.prog===pid && e.type==='out' && !e.hiddenFromReports && !e.cancelledRef
+      && e.src!=='voucher' && e.src!=='reward' && e.src!=='custody' && e.src!=='transfer';
+  }).reduce(function(s,e){return s+e.amount;},0);
 
   const exp = vTotal + cuTotal + rewTotal + directExp;
   const bal = inc - exp;
-  const p=gp(pid);
-  return{inc,exp,bal,vTotal,cuTotal,rewTotal,directExp,budget:p?p.budget||0:0};
+  const p = gp(pid);
+  return{inc,exp,bal,vTotal,cuTotal,cuSpent,cuOpen,rewTotal,directExp,budget:p?p.budget||0:0};
 }
 function checkProgBudget(progId,amount,warnElId,errElId){
   const w=document.getElementById(warnElId);const e2=errElId?document.getElementById(errElId):null;
@@ -4258,6 +4519,11 @@ setInterval(function(){
 },15000);
 const NAV_DEF=[
   {s:'الرئيسية'},{id:'dashboard',lbl:'لوحة التحكم',icon:'🏠'},
+  {s:'الإدارة والبيانات'},
+  {id:'vendors',lbl:'المتعهدون',icon:'👤',adm:true},
+  {id:'funds',lbl:'الصناديق والحسابات',icon:'💰',adm:true},
+  {id:'data-editor',lbl:'محرر البيانات',icon:'📊',adm:true},
+  {id:'settings-expense',lbl:'نوعيات الصرف',icon:'🏷️',adm:true},
   {s:'المالية'},
   {id:'ledger',lbl:'سجل القيود',icon:'📋'},
   {id:'revenues',lbl:'الإيرادات',icon:'📈'},
@@ -4265,6 +4531,7 @@ const NAV_DEF=[
   {id:'vouchers',lbl:'📄 السندات',icon:'🧾'},
   {id:'bank',lbl:'الحساب البنكي',icon:'🏦'},
   {id:'transfer-prog',lbl:'تحويل بين البرامج',icon:'🔀',adm:true},
+  {id:'prog-settle',lbl:'إغلاق وتسوية برنامج',icon:'⚖️',adm:true},
   {s:'البرامج والأنشطة'},
   {id:'programs',lbl:'إدارة البرامج',icon:'🏷️'},
   {id:'custody-clearance',lbl:'تصفية العهد والسندات',icon:'🧮'},
@@ -4279,7 +4546,6 @@ const NAV_DEF=[
   {id:'tasks',lbl:'المهام',icon:'🗂️',badge:true},
   {id:'reports',lbl:'التقارير',icon:'📈'},
   {id:'audit',lbl:'سجل التدقيق',icon:'🔍',adm:true},
-  {id:'data-editor',lbl:'محرر البيانات',icon:'📊',adm:true},
 ]
 function buildNav(){
   document.getElementById('sb-nav').innerHTML=NAV_DEF.map(n=>{
@@ -4328,6 +4594,9 @@ function goPage(id){
       setTimeout(function(){deInit();},500);
       setTimeout(function(){deInit();},1500);
     }
+  },
+  'settings-expense':function(){
+    setTimeout(function(){if(typeof renderExpenseTypesSettings==='function')renderExpenseTypesSettings();},100);
   },
     'transfer-prog':renderTransferProg,
     bank:function(){if(typeof renderBankKPIs==='function'){renderBankKPIs();renderBankTable();}}
@@ -6942,9 +7211,124 @@ function genReport(){
       +'<div class="kpi"><div style="font-size:13pt;font-weight:900;color:#7c3aed">'+pendAssets.length+'</div><div style="font-size:9pt;color:#888">🗃️ أصول خارجة غير مُرتجعة</div></div>'
       +'<div class="kpi"><div style="font-size:13pt;font-weight:900;color:#7f1d1d;direction:ltr">'+fn(pendVouBal+pendCuBal2)+'</div><div style="font-size:9pt;color:#888">📊 إجمالي الذمة المالية ر.ق</div></div>'
       +'</div>';
+}else if(type==='vendor_settle'){
+    // ══ تقرير تصفية المتعهد ══
+    var vendorId=document.getElementById('rpt-vendor').value||'';
+    var allCu2=flt(CUSTODIES||[]);
+    if(prog) allCu2=allCu2.filter(function(c){return c.prog===prog;});
+    // قائمة المتعهدين الفريدين
+    var vendors=[];
+    allCu2.forEach(function(c){var r=c.recipient||'';if(r&&vendors.indexOf(r)===-1)vendors.push(r);});
+
+    // فلتر حسب المتعهد المختار
+    var filtered=vendorId?allCu2.filter(function(c){return c.recipient===vendorId;}):allCu2;
+    var vendorLabel=vendorId||'جميع المتعهدين';
+
+    // CSS
+    var fmtD=function(d){if(!d)return'—';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+    var TH='style="padding:4px 8px;background:#0f2d5e;color:#fff;text-align:right;font-size:11pt;border:1px solid #1e3a6e;font-family:Tajawal,Arial;white-space:nowrap"';
+    var TD='style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial;vertical-align:middle"';
+    var BH=function(ic,tl,col){return'<div style="background:'+col+';color:#fff;padding:4px 10px;font-size:11pt;font-weight:900;font-family:Tajawal,Arial">'+ic+' '+tl+'</div>';};
+    var BOX='style="border:1.5px solid #e2e8f0;border-radius:7px;overflow:hidden;margin-bottom:3mm"';
+    var TR=function(i){return i%2?'#f8fafc':'#fff';};
+
+    body='';
+
+    // رأس
+    body+='<div style="background:linear-gradient(135deg,#0f2d5e,#1e56a0);color:#fff;border-radius:7px;padding:3mm 6mm;margin-bottom:3mm;text-align:center">';
+    body+='<div style="font-size:13pt;font-weight:900;font-family:Tajawal,Arial">📋 تقرير تصفية المتعهد</div>';
+    body+='<div style="font-size:10pt;opacity:.85;font-family:Tajawal,Arial">'+vendorLabel+'</div>';
+    body+='</div>';
+
+    // إحصائيات إجمالية
+    var totAmt2=filtered.reduce(function(s,c){return s+(c.cashAmt||c.amount||0);},0);
+    var totSpent2=filtered.reduce(function(s,c){return s+(c.invoices||c.items||[]).reduce(function(x,i){return x+(i.amount||0);},0);},0);
+    var totRem2=Math.max(0,totAmt2-totSpent2);
+    var settled2=filtered.filter(function(c){return c.status==='settled'||c.status==='closed';});
+    var open2=filtered.filter(function(c){return c.status!=='settled'&&c.status!=='closed'&&c.status!=='archived';});
+
+    body+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:2mm;margin-bottom:3mm">';
+    body+='<div '+BOX+'><div style="background:#0f2d5e;color:#fff;padding:3px 8px;font-size:10pt;font-weight:900;font-family:Tajawal,Arial">📦 إجمالي العهد</div><div style="padding:5px 10px;text-align:center"><div style="font-size:16pt;font-weight:900;color:#0f2d5e;font-family:monospace">'+filtered.length+'</div><div style="font-size:10pt;color:#64748b;font-family:Tajawal,Arial">عهدة</div></div></div>';
+    body+='<div '+BOX+'><div style="background:#0a7c4e;color:#fff;padding:3px 8px;font-size:10pt;font-weight:900;font-family:Tajawal,Arial">⚫ مُغلقة</div><div style="padding:5px 10px;text-align:center"><div style="font-size:16pt;font-weight:900;color:#0a7c4e;font-family:monospace">'+settled2.length+'</div></div></div>';
+    body+='<div '+BOX+'><div style="background:#dc2626;color:#fff;padding:3px 8px;font-size:10pt;font-weight:900;font-family:Tajawal,Arial">🔓 مفتوحة</div><div style="padding:5px 10px;text-align:center"><div style="font-size:16pt;font-weight:900;color:#dc2626;font-family:monospace">'+open2.length+'</div></div></div>';
+    body+='<div '+BOX+'><div style="background:#b45309;color:#fff;padding:3px 8px;font-size:10pt;font-weight:900;font-family:Tajawal,Arial">💰 إجمالي المبالغ</div><div style="padding:5px 10px;text-align:center"><div style="font-size:14pt;font-weight:900;color:#b45309;font-family:monospace">'+fn(totAmt2)+'</div></div></div>';
+    body+='</div>';
+
+    // جدول الصرف والمتبقي
+    body+='<div '+BOX+'>';
+    body+=BH('📊','ملخص الصرف والمتبقي','#0f2d5e');
+    body+='<table style="width:100%;border-collapse:collapse">';
+    body+='<thead><tr><th '+TH+'>البيان</th><th '+TH+'>المبلغ (ر.ق)</th></tr></thead><tbody>';
+    body+='<tr style="background:#f0f9ff"><td '+TD+'>💰 إجمالي مبالغ العهد</td><td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:16pt;direction:ltr;text-align:left;font-weight:900;font-family:monospace">'+fn(totAmt2)+'</td></tr>';
+    body+='<tr style="background:#fef2f2"><td '+TD+'>📋 إجمالي المُصفّى (فواتير موثقة)</td><td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:16pt;direction:ltr;text-align:left;font-weight:900;color:#dc2626;font-family:monospace">'+fn(totSpent2)+'</td></tr>';
+    body+='<tr style="background:'+(totRem2>0?'#fef2f2':'#f0fdf4')+'"><td '+TD+'>⚖️ المتبقي غير المُصفّى</td><td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:16pt;direction:ltr;text-align:left;font-weight:900;color:'+(totRem2>0?'#dc2626':'#059669')+';font-family:monospace">'+fn(totRem2)+'</td></tr>';
+    body+='</tbody></table></div>';
+
+    // تفاصيل كل عهدة مع فواتيرها
+    if(!filtered.length){
+      body+='<div style="text-align:center;padding:30px;color:#94a3b8;font-family:Tajawal,Arial;font-size:11pt">لا توجد عهد للمتعهد المحدد</div>';
+    } else {
+      filtered.forEach(function(c,ci){
+        var items2=c.invoices||c.items||[];
+        var spent3=items2.reduce(function(s,x){return s+(x.amount||0);},0);
+        var rem3=Math.max(0,(c.cashAmt||c.amount||0)-spent3);
+        var stLbl={open:'🟢 مفتوحة',partial:'🟡 جزئية',settled:'⚫ مغلقة',closed:'⚫ مغلقة',archived:'📦 مؤرشف'};
+        var stColor={open:'#059669',partial:'#f59e0b',settled:'#64748b',closed:'#64748b',archived:'#94a3b8'};
+
+        body+='<div '+BOX+' style="page-break-inside:avoid">';
+        // رأس العهدة
+        body+='<div style="background:#f0f4f8;padding:5px 10px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0">';
+        body+='<div style="font-family:Tajawal,Arial">';
+        body+='<span style="font-size:12pt;font-weight:900;color:#b45309">'+c.num+'</span>';
+        body+='<span style="font-size:11pt;color:#374151;margin-right:8px"> — '+(c.recipient||'—')+'</span>';
+        body+='</div>';
+        body+='<div style="display:flex;gap:8px;align-items:center">';
+        body+='<span style="font-size:11pt;font-family:Tajawal,Arial;color:'+(stColor[c.status]||'#64748b')+';font-weight:700">'+(stLbl[c.status]||c.status||'—')+'</span>';
+        body+='<span style="font-size:10pt;color:#64748b;font-family:Tajawal,Arial">'+fmtD(c.date)+'</span>';
+        body+='<span style="font-size:11pt;color:#0f2d5e;font-weight:700;font-family:Tajawal,Arial">'+gpn(c.prog)+'</span>';
+        body+='</div></div>';
+
+        // صف المبالغ
+        body+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr'+(c.returnReceiptNum?' 1fr':'')+';gap:0;border-bottom:1px solid #e2e8f0">';
+        body+='<div style="padding:5px 10px;border-left:1px solid #e2e8f0;text-align:center"><div style="font-size:14pt;font-weight:900;font-family:monospace;color:#0f2d5e">'+fn(c.cashAmt||c.amount||0)+'</div><div style="font-size:9pt;color:#64748b;font-family:Tajawal,Arial">المبلغ الأصلي</div></div>';
+        body+='<div style="padding:5px 10px;border-left:1px solid #e2e8f0;text-align:center"><div style="font-size:14pt;font-weight:900;font-family:monospace;color:#dc2626">'+fn(spent3)+'</div><div style="font-size:9pt;color:#64748b;font-family:Tajawal,Arial">المُصفّى</div></div>';
+        body+='<div style="padding:5px 10px;'+(c.returnReceiptNum?'border-left:1px solid #e2e8f0;':'')+';text-align:center"><div style="font-size:14pt;font-weight:900;font-family:monospace;color:'+(rem3>0?'#dc2626':'#059669')+'">'+fn(rem3)+'</div><div style="font-size:9pt;color:#64748b;font-family:Tajawal,Arial">المتبقي</div></div>';
+        if(c.returnReceiptNum){
+          body+='<div style="padding:5px 10px;text-align:center"><div style="font-size:10pt;font-family:monospace;color:#059669;font-weight:700">'+c.returnReceiptNum+'</div><div style="font-size:9pt;color:#64748b;font-family:Tajawal,Arial">سند الاسترجاع</div></div>';
+        }
+        body+='</div>';
+
+        // الفواتير
+        if(items2.length){
+          body+='<table style="width:100%;border-collapse:collapse">';
+          body+='<thead><tr>';
+          body+='<th '+TH+' style="width:40px">#</th>';
+          body+='<th '+TH+'>بيان الفاتورة</th>';
+          body+='<th '+TH+'>التاريخ</th>';
+          body+='<th '+TH+'>المبلغ (ر.ق)</th>';
+          body+='</tr></thead><tbody>';
+          items2.forEach(function(inv,j){
+            body+='<tr style="background:'+TR(j)+'">';
+            body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:10pt;text-align:center;color:#94a3b8;font-family:Tajawal,Arial">'+(j+1)+'</td>';
+            body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial">'+(inv.desc||'—')+'</td>';
+            body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial;white-space:nowrap">'+fmtD(inv.date||c.date)+'</td>';
+            body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:14pt;direction:ltr;text-align:left;font-weight:900;color:#dc2626;font-family:monospace">'+fn(inv.amount||0)+'</td>';
+            body+='</tr>';
+          });
+          body+='<tr style="background:#fef3c7"><td colspan="3" '+TD+' style="padding:4px 8px;border:1px solid #e2e8f0;font-weight:900">إجمالي الفواتير</td>';
+          body+='<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:14pt;font-weight:900;color:#dc2626;direction:ltr;text-align:left;font-family:monospace">'+fn(spent3)+'</td></tr>';
+          body+='</tbody></table>';
+        } else {
+          body+='<div style="padding:8px 12px;font-size:11pt;color:#94a3b8;font-family:Tajawal,Arial;font-style:italic">لا توجد فواتير مُدرجة لهذه العهدة</div>';
+        }
+        body+='</div>'; // end custody box
+      });
+    }
+
   }else{
     body='<div style="text-align:center;color:#888;padding:20px">اختر نوع التقرير من القائمة</div>';
   }
+
 
   var doc=hdr+body+ftr;
   var rb=document.getElementById('rpt-body');
@@ -8823,6 +9207,1581 @@ document.addEventListener('click',function(e){
     deUpdateInvTotals();
   }
 },true);
+
+// ── تقرير تصفية المتعهد — تحكم بالقائمة المنسدلة ──
+(function(){
+  var rptType = document.getElementById('rpt-type');
+  var rptVendor = document.getElementById('rpt-vendor');
+  if(!rptType || !rptVendor) return;
+
+  function updateVendorSelect(){
+    var type = rptType.value;
+    if(type === 'vendor_settle'){
+      rptVendor.style.display = 'block';
+      // ملء بأسماء المتعهدين
+      var names = [];
+      (CUSTODIES||[]).forEach(function(c){
+        var r = (c.recipient||'').trim();
+        if(r && names.indexOf(r)===-1) names.push(r);
+      });
+      names.sort();
+      var cur = rptVendor.value;
+      rptVendor.innerHTML = '<option value="">👤 جميع المتعهدين</option>'
+        + names.map(function(n){
+            return '<option value="'+n+'"'+(n===cur?' selected':'')+'>👤 '+n+'</option>';
+          }).join('');
+      rptVendor.value = cur;
+    } else {
+      rptVendor.style.display = 'none';
+    }
+  }
+
+  rptType.addEventListener('change', updateVendorSelect);
+  // Also update when page loads or data changes
+  setTimeout(updateVendorSelect, 2000);
+})();
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  المرحلة 1: نوعية الصرف + إلغاء السندات + سجل التدقيق      ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ 1. تهيئة قائمة نوعية الصرف في نموذج السند ══
+function vouInitExpenseTypes(){
+  var sel = document.getElementById('vou-exp-type');
+  if(!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">— اختر نوعية الصرف —</option>'
+    + (EXPENSE_TYPES||[]).map(function(t){
+        return '<option value="'+t.id+'">'+t.icon+' '+t.name+'</option>';
+      }).join('');
+  if(cur) sel.value = cur;
+}
+
+function vouExpTypeChange(){
+  var typeId = (document.getElementById('vou-exp-type')||{}).value||'';
+  var subWrap = document.getElementById('vou-exp-sub-wrap');
+  var subSel  = document.getElementById('vou-exp-sub');
+  if(!subSel) return;
+  if(!typeId){
+    subWrap.style.display='none';
+    return;
+  }
+  var type = (EXPENSE_TYPES||[]).find(function(t){return t.id===typeId;});
+  if(!type||!type.subs||!type.subs.length){
+    subWrap.style.display='none';
+    return;
+  }
+  subSel.innerHTML = '<option value="">— التصنيف الفرعي —</option>'
+    + type.subs.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+  subWrap.style.display='block';
+}
+
+// تهيئة عند فتح نافذة السند
+var _origOpenOv2 = typeof openOv==='function' ? openOv : function(){};
+openOv = function(id){
+  if(id==='ov-voucher'){
+    setTimeout(vouInitExpenseTypes, 50);
+    // Reset expense type fields
+    var et=document.getElementById('vou-exp-type'); if(et)et.value='';
+    var es=document.getElementById('vou-exp-sub'); if(es)es.value='';
+    var ew=document.getElementById('vou-exp-sub-wrap'); if(ew)ew.style.display='none';
+  }
+  _origOpenOv2(id);
+};
+
+// ══ 2. تعديل saveVoucher لحفظ نوعية الصرف ══
+var _origSV2 = typeof saveVoucher==='function' ? saveVoucher : function(){};
+saveVoucher = function(){
+  // inject expType & expSub into the voucher before saving
+  window._vou_pending_exp = {
+    expType: (document.getElementById('vou-exp-type')||{}).value||'',
+    expSub:  (document.getElementById('vou-exp-sub')||{}).value||''
+  };
+  _origSV2();
+};
+
+// Hook to add expType/expSub to the last saved voucher
+var _origCloseOv2 = typeof closeOv==='function' ? closeOv : function(){};
+closeOv = function(id){
+  if(id==='ov-voucher' && window._vou_pending_exp){
+    var lastV = VOUCHERS[VOUCHERS.length-1];
+    if(lastV && window._vou_pending_exp.expType){
+      lastV.expType = window._vou_pending_exp.expType;
+      lastV.expSub  = window._vou_pending_exp.expSub;
+      // Find type name for display
+      var t=(EXPENSE_TYPES||[]).find(function(x){return x.id===lastV.expType;});
+      lastV.expTypeName = t?t.name:'';
+    }
+    window._vou_pending_exp = null;
+  }
+  _origCloseOv2(id);
+};
+
+// ══ 3. إلغاء السند بدلاً من الحذف ══
+var _cancelVouId = null;
+
+function openCancelVoucher(vid){
+  if(!isAdm()){alert('صلاحية المدير فقط');return;}
+  var v=(VOUCHERS||[]).find(function(x){return x.id===vid;});
+  if(!v){alert('السند غير موجود');return;}
+  if(v.status==='cancelled'){alert('هذا السند ملغى مسبقاً');return;}
+  _cancelVouId = vid;
+  var info = document.getElementById('cancel-vou-info');
+  if(info){
+    info.innerHTML = '<b>رقم السند:</b> '+v.num+'<br>'
+      +'<b>المستفيد:</b> '+(v.recipient||'—')+'<br>'
+      +'<b>المبلغ:</b> '+fn(v.amount)+' ر.ق<br>'
+      +'<b>التاريخ:</b> '+fd(v.date)+'<br>'
+      +'<span style="color:#dc2626;font-weight:700">⚠️ لن يُحذف السند — سيظهر كـ "ملغى" في السجلات</span>';
+  }
+  var reason = document.getElementById('cancel-vou-reason');
+  if(reason) reason.value='';
+  document.getElementById('ov-cancel-vou').style.display='block';
+}
+
+function executeCancelVoucher(){
+  if(!_cancelVouId) return;
+  var reason = (document.getElementById('cancel-vou-reason')||{}).value||'';
+  if(!reason.trim()){alert('يرجى إدخال سبب الإلغاء');return;}
+
+  var v=(VOUCHERS||[]).find(function(x){return x.id===_cancelVouId;});
+  if(!v) return;
+
+  // إلغاء السند (لا حذف)
+  var oldStatus = v.status;
+  v.status       = 'cancelled';
+  v.cancelReason = reason;
+  v.cancelledAt  = new Date().toISOString();
+  v.cancelledBy  = CU?CU.name:'';
+
+  // إلغاء القيود المرتبطة (إخفاؤها من التقارير)
+  (ENTRIES||[]).forEach(function(e){
+    if(e.ref===v.num && e.src==='voucher'){
+      e.hiddenFromReports=true;
+      e.cancelledRef=true;
+    }
+  });
+
+  // إذا كانت مرتبطة بعهدة أغلقها
+  var linkedCu=(CUSTODIES||[]).find(function(c){return c.voucherRef===v.num;});
+  if(linkedCu){
+    linkedCu.status='cancelled';
+    linkedCu.cancelReason=reason;
+  }
+
+  // سجل التدقيق
+  auditLog('إلغاء سند صرف', v.num, {from:oldStatus,to:'cancelled',reason:reason});
+  if(typeof log==='function') log('إلغاء سند',v.num+' — '+reason,v.id);
+
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function') cloudSave(true);
+  document.getElementById('ov-cancel-vou').style.display='none';
+  _cancelVouId=null;
+  if(typeof renderVouchers==='function') renderVouchers();
+  if(typeof renderDashboard==='function') renderDashboard();
+  if(typeof showSaveInd==='function') showSaveInd('🚫 تم إلغاء السند '+v.num+' — السجل محفوظ');
+}
+
+// ══ 4. سجل التدقيق المحسّن ══
+function auditLog(action, ref, details){
+  if(!AUDIT) AUDIT=[];
+  AUDIT.push({
+    id: gid(),
+    ts: new Date().toISOString(),
+    date: new Date().toISOString().slice(0,10),
+    time: new Date().toLocaleTimeString('ar-SA'),
+    user: CU?CU.name:'غير معروف',
+    action: action,
+    ref: ref||'',
+    before: (details&&details.from)||'',
+    after:  (details&&details.to)||'',
+    reason: (details&&details.reason)||''
+  });
+}
+
+// ══ 5. إدارة نوعيات الصرف من الإعدادات ══
+function renderExpenseTypesSettings(){
+  var wrap = document.getElementById('expense-types-list');
+  if(!wrap) return;
+  wrap.innerHTML = (EXPENSE_TYPES||[]).map(function(t,i){
+    return '<div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:8px;background:'+(t.disabled?'#f8fafc':'#fff')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center">'
+      +'<span style="font-weight:700;font-size:13px;font-family:Tajawal,Arial">'+(t.disabled?'<s>':'')
+      +t.icon+' '+t.name+(t.disabled?'</s> <span style="color:#94a3b8;font-size:11px">معطّل</span>':'')+'</span>'
+      +'<div style="display:flex;gap:5px">'
+      +'<button onclick="toggleExpType('+i+')" style="padding:3px 10px;background:'+(t.disabled?'#dcfce7':'#fef2f2')+';color:'+(t.disabled?'#059669':'#dc2626')+';border:1.5px solid '+(t.disabled?'#86efac':'#fca5a5')+';border-radius:5px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">'+(t.disabled?'✅ تفعيل':'❌ تعطيل')+'</button>'
+      +'<button onclick="editExpType('+i+')" style="padding:3px 10px;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;border-radius:5px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">✏️ تعديل</button>'
+      +'</div></div>'
+      +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial;margin-top:5px">'+(t.subs||[]).join(' • ')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function toggleExpType(i){
+  if(!EXPENSE_TYPES[i]) return;
+  EXPENSE_TYPES[i].disabled=!EXPENSE_TYPES[i].disabled;
+  if(typeof cloudSave==='function') cloudSave(true);
+  renderExpenseTypesSettings();
+}
+
+function addExpType(){
+  var name=prompt('اسم نوعية الصرف الجديدة:','');
+  if(!name||!name.trim()) return;
+  var icon=prompt('أيقونة (emoji):','📌');
+  var subsStr=prompt('التصنيفات الفرعية (افصل بينها بفاصلة):','أخرى');
+  var subs=(subsStr||'أخرى').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  EXPENSE_TYPES.push({id:'custom_'+Date.now(),name:name.trim(),icon:icon||'📌',subs:subs,custom:true});
+  if(typeof cloudSave==='function') cloudSave(true);
+  renderExpenseTypesSettings();
+  if(typeof showSaveInd==='function') showSaveInd('✅ تمت إضافة نوعية الصرف: '+name);
+}
+
+function editExpType(i){
+  var t=EXPENSE_TYPES[i];if(!t)return;
+  var name=prompt('اسم نوعية الصرف:',t.name);
+  if(!name) return;
+  var icon=prompt('الأيقونة:',t.icon);
+  var subsStr=prompt('التصنيفات الفرعية (افصل بفاصلة):',(t.subs||[]).join(','));
+  t.name=name.trim();
+  t.icon=icon||t.icon;
+  t.subs=(subsStr||'أخرى').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(typeof cloudSave==='function') cloudSave(true);
+  renderExpenseTypesSettings();
+}
+
+// ══ 6. إضافة صفحة الإعدادات — نوعيات الصرف ══
+// تُضاف في goPage handler
+var _goPageOrig = typeof goPage==='function' ? goPage : function(){};
+goPage = function(id){
+  _goPageOrig(id);
+  if(id==='settings-expense'){
+    setTimeout(renderExpenseTypesSettings, 100);
+  }
+};
+
+// ══ 7. عرض نوعية الصرف في جدول السندات ══
+// Hook into renderVouchers to show expType badge
+// This is handled by the existing renderVouchers using v.expTypeName
+
+// ══ 8. إضافة نوعية الصرف للتقارير ══
+function getExpTypeName(id){
+  if(!id) return '—';
+  var t=(EXPENSE_TYPES||[]).find(function(x){return x.id===id;});
+  return t?t.icon+' '+t.name:'—';
+}
+
+// ══ 9. تحديث printVoucher لإظهار نوعية الصرف ══
+// يتم تلقائياً من خلال v.expTypeName في قالب الطباعة
+
+// ══ 10. Reset + initialize expense types ══
+window.EXPENSE_TYPES = window.EXPENSE_TYPES || EXPENSE_TYPES;
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  ميزة 2: صلاحيات مبسّطة + قفل السندات + منع العهد المتعددة ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ نظام الأدوار والصلاحيات ══
+var ROLES = {
+  admin: {
+    label:'مدير كامل',
+    can:['create','edit','delete','approve','cancel','custody_new','custody_settle',
+         'receipt','reward','transfer','report','settings','data_editor']
+  },
+  accountant: {
+    label:'محاسب',
+    can:['create','approve','custody_settle','receipt','reward','report']
+    // لا يمكن: edit بعد الاعتماد، delete، settings، data_editor
+  },
+  user: {
+    label:'مستخدم',
+    can:['create','custody_new','receipt','reward','report']
+  }
+};
+
+function canDo(action){
+  if(!CU) return false;
+  var role = CU.role || 'user';
+  // المدير يملك كل الصلاحيات
+  if(role==='admin') return true;
+  var rolePerms = ROLES[role];
+  if(!rolePerms) return false;
+  return rolePerms.can.indexOf(action) > -1;
+}
+
+// ══ قفل السند المعتمد — منع التعديل بدون صلاحية ══
+function isVoucherLocked(v){
+  if(!v) return false;
+  // السند مقفول إذا كان معتمداً أو مُصفّى أو ملغى
+  return v.status==='approved' || v.status==='settled' || v.status==='cancelled';
+}
+
+function checkVoucherEditPermission(v){
+  if(!v) return true;
+  if(!isVoucherLocked(v)) return true;
+  if(canDo('delete')) return true; // المدير فقط
+  alert('⛔ هذا السند مقفول ('+(v.status||'')+'). لا يمكن تعديله إلا بصلاحية المدير.');
+  return false;
+}
+
+// ══ منع العهد المتعددة للمستلم نفسه ══
+function checkDuplicateCustody(recipientName, excludeId){
+  if(!recipientName||!recipientName.trim()) return {ok:true};
+  var name = recipientName.trim().toLowerCase();
+  var openCustodies = (CUSTODIES||[]).filter(function(c){
+    if(excludeId && c.id===excludeId) return false;
+    if(c.status==='settled'||c.status==='closed'||c.status==='cancelled'||c.status==='archived') return false;
+    return (c.recipient||'').trim().toLowerCase()===name;
+  });
+  if(!openCustodies.length) return {ok:true};
+  return {
+    ok: false,
+    custodies: openCustodies,
+    message: '⚠️ تنبيه: المستلم "'+recipientName+'" لديه '
+      +openCustodies.length+' عهدة مفتوحة:\n'
+      +openCustodies.map(function(c){
+        return '  • '+c.num+' — '+fn(c.cashAmt||c.amount||0)+' ر.ق ('+( c.status||'مفتوحة')+')'
+      }).join('\n')
+      +'\n\nهل تريد المتابعة رغم ذلك؟\n(يُسجَّل ذلك في سجل التدقيق)'
+  };
+}
+
+// Hook saveCustody لفحص التكرار
+var _scOrig = typeof saveCustody==='function' ? saveCustody : null;
+if(_scOrig){
+  saveCustody = function(){
+    var nameEl = document.getElementById('cu-name');
+    var name = nameEl ? nameEl.value.trim() : '';
+    if(name){
+      var check = checkDuplicateCustody(name, null);
+      if(!check.ok){
+        if(canDo('delete')){
+          // مدير — يمكنه المتابعة مع تسجيل
+          if(!confirm(check.message)) return;
+          auditLog('استثناء عهدة مزدوجة', name, {reason:'موافقة المدير على إنشاء عهدة رغم وجود عهدة مفتوحة'});
+        } else {
+          // غير مدير — منع نهائي
+          alert('⛔ لا يمكن إنشاء عهدة جديدة\n\n'+check.message.split('هل تريد')[0]
+            +'\n\nيرجى تصفية العهدة الحالية أولاً.');
+          return;
+        }
+      }
+    }
+    _scOrig();
+  };
+}
+
+// ══ تحسين واجهة الأزرار حسب الصلاحيات ══
+function applyPermissionUI(){
+  if(!CU) return;
+  var isAdmin = canDo('delete');
+  var isAccountant = canDo('approve');
+  
+  // أزرار المدير فقط
+  document.querySelectorAll('[data-perm="admin"]').forEach(function(el){
+    el.style.display = isAdmin ? '' : 'none';
+  });
+  
+  // أزرار المحاسب فأعلى
+  document.querySelectorAll('[data-perm="approve"]').forEach(function(el){
+    el.style.display = isAccountant ? '' : 'none';
+  });
+}
+
+// ══ شارة الصلاحيات في الشريط العلوي ══
+function showRoleBadge(){
+  if(!CU) return;
+  var role = CU.role||'user';
+  var roleInfo = ROLES[role]||ROLES.user;
+  var badgeEl = document.getElementById('role-badge');
+  if(badgeEl){
+    badgeEl.textContent = roleInfo.label;
+    badgeEl.style.background = role==='admin'?'#0f2d5e':role==='accountant'?'#059669':'#64748b';
+  }
+}
+
+// تشغيل عند الدخول
+var _origApplyState2 = typeof applyState==='function' ? applyState : null;
+if(_origApplyState2){
+  applyState = function(s){
+    _origApplyState2(s);
+    setTimeout(function(){
+      showRoleBadge();
+      applyPermissionUI();
+    },200);
+  };
+}
+
+// ══ اعتماد السند ══
+function approveVoucher(vid){
+  if(!canDo('approve')){alert('⛔ ليس لديك صلاحية الاعتماد');return;}
+  var v=(VOUCHERS||[]).find(function(x){return x.id===vid;});
+  if(!v){alert('السند غير موجود');return;}
+  if(v.status==='approved'){alert('السند معتمد مسبقاً');return;}
+  if(v.status==='cancelled'){alert('لا يمكن اعتماد سند ملغى');return;}
+  if(!confirm('اعتماد السند '+v.num+' بمبلغ '+fn(v.amount)+' ر.ق؟')) return;
+  var oldStatus = v.status;
+  v.status='approved';
+  v.approvedBy=CU?CU.name:'';
+  v.approvedAt=new Date().toISOString();
+  auditLog('اعتماد سند صرف',v.num,{from:oldStatus,to:'approved'});
+  if(typeof log==='function') log('اعتماد سند',v.num,v.id);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function') cloudSave(true);
+  if(typeof renderVouchers==='function') renderVouchers();
+  if(typeof showSaveInd==='function') showSaveInd('✅ تم اعتماد السند '+v.num);
+}
+
+// ══ ملخص منع الازدواجية في حساب العهد ══
+// progBal الجديد يحسب:
+// • العهد المفتوحة: مبلغها الكامل (خرج من الرصيد فعلاً)
+// • العهد المغلقة: المصروف الفعلي فقط (الفواتير المعتمدة)
+// • المبلغ المسترجع: يعود للرصيد عبر قيد "in" من نوع custody-return
+// النتيجة: لا يُحتسب المبلغ مرتين في أي حال
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  نظام الصناديق والحسابات المالية                            ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ حساب رصيد الصندوق ══
+function fundBalance(fundId){
+  if(!fundId) return 0;
+  var bal = 0;
+  var fund = (FUNDS||[]).find(function(f){return f.id===fundId;});
+  if(!fund) return 0;
+
+  // القيود الواردة (قبض)
+  (ENTRIES||[]).forEach(function(e){
+    if(e.hiddenFromReports||e.cancelledRef) return;
+    if(e.fund===fundId && e.type==='in') bal += e.amount||0;
+  });
+  // القيود الصادرة (صرف)
+  (ENTRIES||[]).forEach(function(e){
+    if(e.hiddenFromReports||e.cancelledRef) return;
+    if(e.fund===fundId && e.type==='out') bal -= e.amount||0;
+  });
+  // سندات القبض
+  (RECEIPTS||[]).forEach(function(r){
+    if(r.hiddenFromReports) return;
+    if(r.fund===fundId) bal += r.amount||0;
+  });
+  // سندات الصرف المباشرة
+  var cuVR = new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
+  (VOUCHERS||[]).forEach(function(v){
+    if(v.hiddenFromReports||v.status==='cancelled') return;
+    if(v.fund===fundId && !cuVR.has(v.num)) bal -= v.amount||0;
+  });
+  // العهد
+  (CUSTODIES||[]).forEach(function(c){
+    if(c.hiddenFromReports||c.status==='cancelled') return;
+    if(c.fund===fundId){
+      var amt = c.cashAmt||c.amount||0;
+      if(c.status==='settled'||c.status==='closed'){
+        var spent=(c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);
+        bal -= spent;
+      } else {
+        bal -= amt;
+      }
+    }
+  });
+  // المكافآت
+  (REWARDS||[]).forEach(function(r){
+    if(r.hiddenFromReports) return;
+    if(r.fund===fundId) bal -= r.amount||0;
+  });
+  return bal;
+}
+
+// ══ تهيئة قوائم الصناديق في نماذج السندات ══
+function fillFundSelects(){
+  var activeFunds = (FUNDS||[]).filter(function(f){return f.active;});
+  document.querySelectorAll('#vou-fund,#rec-fund,#cu-fund,#rew-fund').forEach(function(sel){
+    if(!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">— اختر الصندوق —</option>'
+      + activeFunds.map(function(f){
+          var bal = fundBalance(f.id);
+          return '<option value="'+f.id+'">'+f.icon+' '+f.name+' ('+(bal>=0?'+':'')+fn(bal)+')</option>';
+        }).join('');
+    if(cur) sel.value = cur;
+  });
+}
+
+function vouUpdateFundOptions(){
+  var method = (document.getElementById('vou-mth')||{}).value||'';
+  var fundSel = document.getElementById('vou-fund');
+  if(!fundSel) return;
+  fillFundSelects();
+  // اختر الصندوق المناسب تلقائياً
+  if(method==='نقداً'||method==='بطاقة'){
+    // اقترح الصندوق النقدي
+    var cashFund = (FUNDS||[]).find(function(f){return f.type==='cash'&&f.active;});
+    if(cashFund && !fundSel.value) fundSel.value=cashFund.id;
+  } else if(method==='تحويل بنكي'||method==='شيك'){
+    // اقترح الحساب البنكي
+    var bankFund = (FUNDS||[]).find(function(f){return f.type==='bank'&&f.active;});
+    if(bankFund && !fundSel.value) fundSel.value=bankFund.id;
+  }
+  vouShowFundBalance();
+}
+
+function vouShowFundBalance(){
+  var fundId = (document.getElementById('vou-fund')||{}).value||'';
+  var balWrap = document.getElementById('vou-fund-bal-wrap');
+  var balEl   = document.getElementById('vou-fund-bal');
+  if(!balWrap||!balEl) return;
+  if(!fundId){balWrap.style.display='none';return;}
+  var bal = fundBalance(fundId);
+  balEl.textContent = fn(bal)+' ر.ق';
+  balEl.style.color = bal>=0?'#059669':'#dc2626';
+  balWrap.style.display='block';
+}
+
+// ══ عند فتح نافذة السند — تهيئة الصناديق ══
+var _origOpenOv3 = typeof openOv==='function' ? openOv : function(){};
+openOv = function(id){
+  _origOpenOv3(id);
+  if(id==='ov-voucher'||id==='ov-receipt'||id==='ov-custody'||id==='ov-reward'){
+    setTimeout(function(){fillFundSelects();},100);
+  }
+};
+
+// ══ Hook saveVoucher لحفظ الصندوق مع السند ══
+var _origSV3 = typeof saveVoucher==='function' ? saveVoucher : function(){};
+saveVoucher = function(){
+  window._vou_pending_fund = (document.getElementById('vou-fund')||{}).value||'';
+  _origSV3();
+};
+var _origCloseOv3 = typeof closeOv==='function' ? closeOv : function(){};
+closeOv = function(id){
+  if(id==='ov-voucher' && window._vou_pending_fund){
+    var lastV = VOUCHERS[VOUCHERS.length-1];
+    if(lastV) lastV.fund = window._vou_pending_fund;
+    window._vou_pending_fund = '';
+  }
+  _origCloseOv3(id);
+};
+
+// ══ عرض صفحة الصناديق ══
+function renderFunds(){
+  var stats = document.getElementById('funds-stats');
+  var list  = document.getElementById('funds-list');
+  if(!stats||!list) return;
+
+  var totalBal = 0;
+  (FUNDS||[]).forEach(function(f){if(f.active)totalBal+=fundBalance(f.id);});
+
+  stats.innerHTML = '<div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:12px;background:#f0fdf4;text-align:center">'
+    +'<div style="font-size:20pt;font-weight:900;color:#059669;font-family:monospace">'+fn(totalBal)+'</div>'
+    +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial">إجمالي الأرصدة</div></div>';
+
+  list.innerHTML = (FUNDS||[]).map(function(f,i){
+    var bal = fundBalance(f.id);
+    var txCount = countFundTx(f.id);
+    return '<div style="border:1.5px solid '+(f.active?'#e2e8f0':'#f1f5f9')+';border-radius:10px;padding:14px;margin-bottom:10px;background:'+(f.active?'#fff':'#f8fafc')+';">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+      +'<div>'
+      +'<div style="font-size:14px;font-weight:900;color:#0f2d5e;font-family:Tajawal,Arial">'
+      +f.icon+' '+f.name+(f.active?'':' <span style="color:#94a3b8;font-size:11px">معطّل</span>')+'</div>'
+      +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial;margin-top:3px">'
+      +(f.type==='cash'?'💵 نقدي':'🏦 بنكي')+' — '+(f.desc||'')+'</div>'
+      +'<div style="font-size:11px;color:#64748b;margin-top:3px;font-family:Tajawal,Arial">'+txCount+' حركة مالية</div>'
+      +'</div>'
+      +'<div style="text-align:center">'
+      +'<div style="font-size:18pt;font-weight:900;color:'+(bal>=0?'#059669':'#dc2626')+';font-family:monospace">'
+      +(bal>=0?'+':'')+fn(bal)+'</div>'
+      +'<div style="font-size:10px;color:#64748b;font-family:Tajawal,Arial">ر.ق</div>'
+      +'</div></div>'
+      +'<div style="display:flex;gap:6px;margin-top:10px">'
+      +'<button class="fund-view-btn" data-fid="'+f.id+'" style="padding:5px 12px;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">📋 الحركات</button>'
+      +'<button onclick="editFund('+i+')" style="padding:5px 12px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">✏️ تعديل</button>'
+      +'<button onclick="toggleFund('+i+')" style="padding:5px 12px;background:'+(f.active?'#fef2f2':'#f0fdf4')+';color:'+(f.active?'#dc2626':'#059669')+';border:1.5px solid '+(f.active?'#fca5a5':'#86efac')+';border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">'+(f.active?'❌ تعطيل':'✅ تفعيل')+'</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function countFundTx(fundId){
+  var n=0;
+  (ENTRIES||[]).forEach(function(e){if(e.fund===fundId)n++;});
+  (VOUCHERS||[]).forEach(function(v){if(v.fund===fundId)n++;});
+  (RECEIPTS||[]).forEach(function(r){if(r.fund===fundId)n++;});
+  return n;
+}
+
+function viewFundTx(fundId){
+  var fund=(FUNDS||[]).find(function(f){return f.id===fundId;});
+  if(!fund) return;
+  var wrap=document.getElementById('fund-transactions');
+  if(!wrap) return;
+  var txs=[];
+  (RECEIPTS||[]).forEach(function(r){if(r.fund===fundId)txs.push({date:r.date,type:'in',desc:'📥 '+r.being,amount:r.amount,ref:r.num});});
+  (VOUCHERS||[]).forEach(function(v){if(v.fund===fundId&&v.status!=='cancelled')txs.push({date:v.date,type:'out',desc:'📤 '+v.being,amount:v.amount,ref:v.num});});
+  (CUSTODIES||[]).forEach(function(c){if(c.fund===fundId&&c.status!=='cancelled'){var amt=c.cashAmt||c.amount||0;txs.push({date:c.date,type:'out',desc:'🗂️ عهدة — '+c.recipient,amount:amt,ref:c.num});}});
+  txs.sort(function(a,b){return a.date>b.date?1:-1;});
+  var fmtD=function(d){if(!d)return'—';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+  var runBal=0;
+  var rows=txs.map(function(t){
+    runBal+=t.type==='in'?t.amount:-t.amount;
+    return '<tr><td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial">'+fmtD(t.date)+'</td>'
+      +'<td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial">'+t.desc+'</td>'
+      +'<td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:monospace;color:'+(t.type==='in'?'#059669':'#dc2626')+'">'+(t.type==='in'?'+':'-')+fn(t.amount)+'</td>'
+      +'<td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:monospace;color:'+(runBal>=0?'#059669':'#dc2626')+'">'+fn(runBal)+'</td>'
+      +'<td style="padding:5px 8px;border:1px solid #e2e8f0;font-size:10pt;color:#64748b;font-family:monospace">'+t.ref+'</td></tr>';
+  }).join('');
+  wrap.innerHTML='<div style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-top:8px">'
+    +'<div style="background:#0f2d5e;color:#fff;padding:8px 14px;font-weight:900;font-family:Tajawal,Arial;font-size:13px">📋 حركات: '+fund.icon+' '+fund.name+'</div>'
+    +'<table style="width:100%;border-collapse:collapse">'
+    +'<thead><tr><th style="padding:6px 8px;background:#1e3a6e;color:#fff;text-align:right;font-family:Tajawal,Arial;font-size:11pt;border:1px solid #1e3a6e">التاريخ</th>'
+    +'<th style="padding:6px 8px;background:#1e3a6e;color:#fff;text-align:right;font-family:Tajawal,Arial;font-size:11pt;border:1px solid #1e3a6e">البيان</th>'
+    +'<th style="padding:6px 8px;background:#1e3a6e;color:#fff;font-family:Tajawal,Arial;font-size:11pt;border:1px solid #1e3a6e">المبلغ</th>'
+    +'<th style="padding:6px 8px;background:#1e3a6e;color:#fff;font-family:Tajawal,Arial;font-size:11pt;border:1px solid #1e3a6e">الرصيد</th>'
+    +'<th style="padding:6px 8px;background:#1e3a6e;color:#fff;font-family:Tajawal,Arial;font-size:11pt;border:1px solid #1e3a6e">المرجع</th></tr></thead>'
+    +'<tbody>'+(rows||'<tr><td colspan="5" style="padding:20px;text-align:center;color:#94a3b8;font-family:Tajawal,Arial">لا توجد حركات</td></tr>')+'</tbody></table></div>';
+}
+
+function addFund(){
+  var name=prompt('اسم الصندوق / الحساب:','');
+  if(!name||!name.trim())return;
+  var type=prompt('النوع (cash=نقدي, bank=بنكي):','cash');
+  var icon=prompt('الأيقونة:',type==='bank'?'🏦':'💵');
+  var desc=prompt('الوصف (اختياري):','');
+  if(!FUNDS)FUNDS=[];
+  FUNDS.push({id:'fund_'+Date.now(),name:name.trim(),type:type||'cash',icon:icon||'💵',balance:0,active:true,desc:desc||''});
+  if(typeof cloudSave==='function')cloudSave(true);
+  renderFunds();
+  if(typeof showSaveInd==='function')showSaveInd('✅ تمت إضافة: '+name);
+}
+
+function editFund(i){
+  var f=FUNDS[i];if(!f)return;
+  var name=prompt('الاسم:',f.name);if(!name)return;
+  var icon=prompt('الأيقونة:',f.icon);
+  var desc=prompt('الوصف:',f.desc||'');
+  f.name=name.trim();f.icon=icon||f.icon;f.desc=desc||'';
+  if(typeof cloudSave==='function')cloudSave(true);
+  renderFunds();fillFundSelects();
+}
+
+function toggleFund(i){
+  if(!FUNDS[i])return;
+  FUNDS[i].active=!FUNDS[i].active;
+  if(typeof cloudSave==='function')cloudSave(true);
+  renderFunds();fillFundSelects();
+}
+
+// ══ تشغيل عند goPage ══
+var _goPageOrig2 = typeof goPage==='function' ? goPage : function(){};
+goPage = function(id){
+  _goPageOrig2(id);
+  if(id==='funds') setTimeout(renderFunds, 100);
+};
+
+// تهيئة عند بدء التشغيل
+setTimeout(function(){
+  if(FUNDS&&FUNDS.length) fillFundSelects();
+}, 2500);
+
+
+// Delegation for fund buttons
+document.addEventListener('click',function(e){
+  var vb=e.target.closest?e.target.closest('.fund-view-btn'):null;
+  if(vb) viewFundTx(vb.dataset.fid);
+},true);
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  نظام المتعهدين + قفل الصناديق + التحويل للبنك              ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ A. إدارة المتعهدين ══
+var _editVendorId = null;
+
+function openAddVendor(vid){
+  _editVendorId = vid||null;
+  var v = vid ? (VENDORS||[]).find(function(x){return x.id===vid;}) : null;
+  document.getElementById('vendor-modal-title').textContent = v?'✏️ تعديل بيانات المتعهد':'👤 تسجيل متعهد جديد';
+  ['vnd-name','vnd-phone','vnd-id','vnd-org','vnd-note'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.value = v ? (v[id.replace('vnd-','')]||'') : '';
+  });
+  var err=document.getElementById('vnd-err'); if(err)err.style.display='none';
+  document.getElementById('ov-vendor').style.display='block';
+}
+
+function saveVendor(){
+  var name  = (document.getElementById('vnd-name')||{}).value.trim();
+  var phone = (document.getElementById('vnd-phone')||{}).value.trim();
+  var idNum = (document.getElementById('vnd-id')||{}).value.trim();
+  var org   = (document.getElementById('vnd-org')||{}).value.trim();
+  var note  = (document.getElementById('vnd-note')||{}).value.trim();
+  var errEl = document.getElementById('vnd-err');
+
+  function showErr(msg){ if(errEl){errEl.textContent=msg;errEl.style.display='block';} }
+  if(!name){ showErr('⚠️ الاسم الكامل مطلوب'); return; }
+  if(!phone){ showErr('⚠️ رقم الهاتف مطلوب'); return; }
+
+  // منع التكرار
+  var existing = (VENDORS||[]).filter(function(v){
+    if(_editVendorId && v.id===_editVendorId) return false;
+    var nameMatch = v.name.trim().toLowerCase() === name.toLowerCase();
+    var phoneMatch = v.phone.replace(/\s/g,'') === phone.replace(/\s/g,'');
+    var idMatch = idNum && v.idNum && v.idNum.replace(/\s/g,'')===idNum.replace(/\s/g,'');
+    return nameMatch || phoneMatch || idMatch;
+  });
+  if(existing.length){
+    var dup = existing[0];
+    showErr('⚠️ المتعهد مسجل مسبقاً:\n'+dup.name+' — '+dup.phone);
+    return;
+  }
+
+  if(!VENDORS) VENDORS=[];
+  if(_editVendorId){
+    var v2=VENDORS.find(function(x){return x.id===_editVendorId;});
+    if(v2){v2.name=name;v2.phone=phone;v2.idNum=idNum;v2.org=org;v2.note=note;v2._edited=new Date().toISOString();}
+  } else {
+    VENDORS.push({id:gid(),name:name,phone:phone,idNum:idNum,org:org,note:note,
+      active:true,by:CU?CU.name:'',ts:new Date().toISOString()});
+  }
+  if(typeof cloudSave==='function') cloudSave(true);
+  document.getElementById('ov-vendor').style.display='none';
+  renderVendors();
+  if(typeof showSaveInd==='function') showSaveInd('✅ تم حفظ المتعهد: '+name);
+}
+
+function renderVendors(){
+  var wrap = document.getElementById('vendors-list');
+  if(!wrap) return;
+  var q = ((document.getElementById('vendor-search')||{}).value||'').trim().toLowerCase();
+  var list = (VENDORS||[]).filter(function(v){
+    if(!q) return true;
+    return (v.name||'').toLowerCase().indexOf(q)>-1
+      || (v.phone||'').indexOf(q)>-1
+      || (v.idNum||'').indexOf(q)>-1;
+  });
+  if(!list.length){
+    wrap.innerHTML='<div style="text-align:center;padding:40px;color:#94a3b8;font-family:Tajawal,Arial"><div style="font-size:40px">👤</div><div style="font-size:14px;margin-top:10px">لا يوجد متعهدون مسجلون</div><div style="font-size:12px;margin-top:5px;color:#64748b">اضغط "+ تسجيل متعهد جديد" لإضافة أول متعهد</div></div>';
+    return;
+  }
+  wrap.innerHTML = list.map(function(v){
+    var openCu = (CUSTODIES||[]).filter(function(c){
+      return (c.vendorId===v.id||c.recipient===v.name) && c.status!=='settled'&&c.status!=='closed'&&c.status!=='cancelled';
+    });
+    var totalCu = (CUSTODIES||[]).filter(function(c){return c.vendorId===v.id||c.recipient===v.name;}).length;
+    return '<div style="border:1.5px solid '+(v.active?'#e2e8f0':'#f1f5f9')+';border-radius:10px;padding:14px 16px;margin-bottom:8px;background:'+(v.active?'#fff':'#f8fafc')+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+      +'<div>'
+      +'<div style="font-size:14px;font-weight:900;color:#0f2d5e;font-family:Tajawal,Arial">👤 '+v.name
+      +(openCu.length?'<span style="background:#fef3c7;color:#b45309;font-size:10px;padding:1px 7px;border-radius:10px;margin-right:8px;font-weight:700">'+openCu.length+' عهدة مفتوحة</span>':'')+'</div>'
+      +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial;margin-top:4px;display:flex;gap:12px">'
+      +(v.phone?'📱 '+v.phone:'')+(v.idNum?' | 🪪 '+v.idNum:'')+(v.org?' | 🏢 '+v.org:'')+'</div>'
+      +(v.note?'<div style="font-size:11px;color:#94a3b8;margin-top:3px;font-family:Tajawal,Arial">📝 '+v.note+'</div>':'')
+      +'<div style="font-size:10px;color:#94a3b8;margin-top:4px;font-family:Tajawal,Arial">إجمالي العهد: '+totalCu+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px">'
+      +'<button onclick="openAddVendor(\''+v.id+'\')" style="padding:5px 11px;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">✏️ تعديل</button>'
+      +'<button onclick="toggleVendor(\''+v.id+'\')" style="padding:5px 11px;background:'+(v.active?'#fef2f2':'#f0fdf4')+';color:'+(v.active?'#dc2626':'#059669')+';border:1.5px solid '+(v.active?'#fca5a5':'#86efac')+';border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">'+(v.active?'❌ إيقاف':'✅ تفعيل')+'</button>'
+      +'</div></div></div>';
+  }).join('');
+}
+
+function toggleVendor(vid){
+  var v=(VENDORS||[]).find(function(x){return x.id===vid;});
+  if(!v)return;
+  v.active=!v.active;
+  if(typeof cloudSave==='function')cloudSave(true);
+  renderVendors();
+}
+
+// قائمة المتعهدين للاستخدام في العهد
+function fillVendorSelect(selId, required){
+  var sel=document.getElementById(selId);
+  if(!sel)return;
+  var cur=sel.value;
+  sel.innerHTML='<option value="">— اختر المتعهد —</option>'
+    +(VENDORS||[]).filter(function(v){return v.active;}).map(function(v){
+        var openCu=(CUSTODIES||[]).filter(function(c){return (c.vendorId===v.id||c.recipient===v.name)&&c.status!=='settled'&&c.status!=='closed'&&c.status!=='cancelled';});
+        return '<option value="'+v.id+'"'+(openCu.length?' style="color:#b45309"':'')+'>'+v.name+(v.phone?' — '+v.phone:'')+(openCu.length?' ('+openCu.length+' مفتوحة)':'')+'</option>';
+      }).join('');
+  if(cur)sel.value=cur;
+}
+
+// ══ B. قفل الصناديق وفتحها ══
+function isFundLocked(fundId){
+  return !!(FUNDS_LOCKED&&FUNDS_LOCKED[fundId]);
+}
+
+function lockFund(fundId){
+  if(!canDo('delete')){alert('⛔ للمدير فقط');return;}
+  var fund=(FUNDS||[]).find(function(f){return f.id===fundId;});
+  if(!fund)return;
+  if(isFundLocked(fundId)){alert('الحساب/الصندوق مقفل مسبقاً');return;}
+  var bal = typeof fundBalance==='function'?fundBalance(fundId):0;
+  var reason=prompt('سبب قفل الحساب "'+fund.name+'":\n(الرصيد الحالي: '+fn(bal)+' ر.ق)','تم تصفية الحساب وإغلاقه');
+  if(!reason)return;
+  if(!confirm('⚠️ قفل الحساب: '+fund.name+'\n\nبعد القفل لا يمكن:\n• صرف أي مبالغ\n• إيداع أي مبالغ\n• تعديل أي حركة\n\nهل أنت متأكد؟'))return;
+  if(!FUNDS_LOCKED)FUNDS_LOCKED={};
+  FUNDS_LOCKED[fundId]={by:CU?CU.name:'',at:new Date().toISOString(),reason:reason,balance:bal};
+  fund.locked=true;
+  if(typeof auditLog==='function')auditLog('قفل صندوق/حساب',fund.name,{reason:reason});
+  if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof renderFunds==='function')renderFunds();
+  if(typeof showSaveInd==='function')showSaveInd('🔒 تم قفل الحساب: '+fund.name);
+}
+
+function unlockFund(fundId){
+  if(!canDo('delete')){alert('⛔ للمدير فقط');return;}
+  var fund=(FUNDS||[]).find(function(f){return f.id===fundId;});
+  if(!fund)return;
+  if(!isFundLocked(fundId)){alert('الحساب غير مقفول');return;}
+  var lockInfo=FUNDS_LOCKED[fundId];
+  if(!confirm('🔓 فتح الحساب: '+fund.name+'\n\nقُفل بواسطة: '+(lockInfo.by||'—')+'\nالسبب: '+(lockInfo.reason||'—')+'\n\nهل تريد فتح الحساب للتعديل والإضافة؟'))return;
+  delete FUNDS_LOCKED[fundId];
+  fund.locked=false;
+  if(typeof auditLog==='function')auditLog('فتح صندوق/حساب',fund.name,{});
+  if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof renderFunds==='function')renderFunds();
+  if(typeof showSaveInd==='function')showSaveInd('🔓 تم فتح الحساب: '+fund.name);
+}
+
+// التحقق من قفل الصندوق قبل أي عملية
+function checkFundLocked(fundId, action){
+  if(!fundId)return true;
+  if(!isFundLocked(fundId))return true;
+  var fund=(FUNDS||[]).find(function(f){return f.id===fundId;});
+  var lockInfo=(FUNDS_LOCKED||{})[fundId]||{};
+  alert('⛔ الحساب/الصندوق مقفول\n\n'+
+    (fund?fund.name:fundId)+'\n'+
+    'السبب: '+(lockInfo.reason||'—')+'\n'+
+    'قُفل بواسطة: '+(lockInfo.by||'—')+'\n\n'+
+    'يرجى التواصل مع المدير لفتح الحساب.');
+  return false;
+}
+
+// Override renderFunds to show lock button
+var _origRenderFunds = typeof renderFunds==='function'?renderFunds:null;
+function renderFunds(){
+  var stats=document.getElementById('funds-stats');
+  var list=document.getElementById('funds-list');
+  if(!stats||!list)return;
+  var totalBal=0;
+  (FUNDS||[]).forEach(function(f){if(f.active)totalBal+=fundBalance(f.id);});
+  stats.innerHTML='<div style="border:1.5px solid #e2e8f0;border-radius:8px;padding:12px;background:#f0fdf4;text-align:center">'
+    +'<div style="font-size:20pt;font-weight:900;color:#059669;font-family:monospace">'+fn(totalBal)+'</div>'
+    +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial">إجمالي الأرصدة</div></div>';
+  list.innerHTML=(FUNDS||[]).map(function(f,i){
+    var bal=fundBalance(f.id);
+    var txCount=countFundTx(f.id);
+    var locked=isFundLocked(f.id);
+    var lockInfo=locked?(FUNDS_LOCKED[f.id]||{}):{};
+    return '<div style="border:1.5px solid '+(locked?'#fca5a5':f.active?'#e2e8f0':'#f1f5f9')+';border-radius:10px;padding:14px;margin-bottom:10px;background:'+(locked?'#fef2f2':f.active?'#fff':'#f8fafc')+';">'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+      +'<div>'
+      +'<div style="font-size:14px;font-weight:900;color:#0f2d5e;font-family:Tajawal,Arial">'
+      +f.icon+' '+f.name+(locked?' 🔒 <span style="color:#dc2626;font-size:11px">مقفول</span>':(!f.active?' <span style="color:#94a3b8;font-size:11px">معطّل</span>':''))+'</div>'
+      +(locked?'<div style="font-size:10px;color:#dc2626;font-family:Tajawal,Arial;margin-top:3px">'+lockInfo.reason+' — '+(lockInfo.by||'')+'</div>':'')
+      +'<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial;margin-top:3px">'+(f.type==='cash'?'💵 نقدي':'🏦 بنكي')+' — '+(f.desc||'')+'</div>'
+      +'<div style="font-size:11px;color:#64748b;margin-top:3px;font-family:Tajawal,Arial">'+txCount+' حركة مالية</div>'
+      +'</div>'
+      +'<div style="text-align:center"><div style="font-size:18pt;font-weight:900;color:'+(bal>=0?'#059669':'#dc2626')+';font-family:monospace">'+(bal>=0?'+':'')+fn(bal)+'</div>'
+      +'<div style="font-size:10px;color:#64748b;font-family:Tajawal,Arial">ر.ق</div></div></div>'
+      +'<div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">'
+      +'<button class="fund-view-btn" data-fid="'+f.id+'" style="padding:5px 12px;background:#dbeafe;color:#1d4ed8;border:1.5px solid #93c5fd;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">📋 الحركات</button>'
+      +'<button onclick="genFundReport(\''+f.id+'\')" style="padding:5px 12px;background:#ede9fe;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">📊 تقرير</button>'
+      +(locked
+        ?'<button onclick="unlockFund(\''+f.id+'\')" style="padding:5px 12px;background:#f0fdf4;color:#059669;border:1.5px solid #86efac;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">🔓 فتح الحساب</button>'
+        :'<button onclick="lockFund(\''+f.id+'\')" style="padding:5px 12px;background:#fef3c7;color:#b45309;border:1.5px solid #fcd34d;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">🔒 قفل الحساب</button>'
+        +'<button onclick="editFund('+i+')" style="padding:5px 12px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">✏️ تعديل</button>'
+        +'<button onclick="toggleFund('+i+')" style="padding:5px 12px;background:'+(f.active?'#fef2f2':'#f0fdf4')+';color:'+(f.active?'#dc2626':'#059669')+';border:1.5px solid '+(f.active?'#fca5a5':'#86efac')+';border-radius:6px;cursor:pointer;font-family:Tajawal,Arial;font-size:11px">'+(f.active?'❌ تعطيل':'✅ تفعيل')+'</button>')
+      +'</div></div>';
+  }).join('');
+}
+
+// ══ C. تقرير الصندوق / الحساب ══
+function genFundReport(fundId){
+  var fund=(FUNDS||[]).find(function(f){return f.id===fundId;});
+  if(!fund)return;
+  var bal=fundBalance(fundId);
+  var txs=[];
+  var fmtD=function(d){if(!d)return'—';var p=d.split('-');return p.length===3?p[2]+'-'+p[1]+'-'+p[0]:d;};
+  (RECEIPTS||[]).forEach(function(r){if(r.fund===fundId&&!r.hiddenFromReports)txs.push({date:r.date,type:'in',desc:'📥 قبض — '+(r.being||r.from||'—'),amount:r.amount,ref:r.num,prog:gpn(r.prog)});});
+  (VOUCHERS||[]).forEach(function(v){if(v.fund===fundId&&v.status!=='cancelled'&&!v.hiddenFromReports){var cuVR=new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));if(!cuVR.has(v.num))txs.push({date:v.date,type:'out',desc:'📤 صرف — '+(v.being||v.recipient||'—'),amount:v.amount,ref:v.num,prog:gpn(v.prog)});}});
+  (CUSTODIES||[]).forEach(function(c){if(c.fund===fundId&&c.status!=='cancelled'&&!c.hiddenFromReports){var amt=c.cashAmt||c.amount||0;var spent=(c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);var actual=(c.status==='settled'||c.status==='closed')?spent:amt;txs.push({date:c.date,type:'out',desc:'🗂️ عهدة — '+c.recipient,amount:actual,ref:c.num,prog:gpn(c.prog)});}});
+  txs.sort(function(a,b){return a.date>b.date?1:a.date<b.date?-1:0;});
+  var runBal=0;
+  var TH='style="padding:5px 8px;background:#0f2d5e;color:#fff;text-align:right;font-size:11pt;font-family:Tajawal,Arial;border:1px solid #1e3a6e"';
+  var TD='style="padding:4px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial"';
+  var rows=txs.map(function(t){
+    runBal+=t.type==='in'?t.amount:-t.amount;
+    return '<tr><td '+TD+'>'+fmtD(t.date)+'</td><td '+TD+'>'+t.desc+'</td><td '+TD+'>'+t.prog+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:12pt;font-weight:700;direction:ltr;text-align:left;color:'+(t.type==='in'?'#059669':'#dc2626')+';font-family:monospace">'+(t.type==='in'?'+':'-')+fn(t.amount)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:12pt;font-weight:700;direction:ltr;text-align:left;color:'+(runBal>=0?'#059669':'#dc2626')+';font-family:monospace">'+fn(runBal)+'</td>'
+      +'<td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10pt;color:#64748b;font-family:monospace">'+t.ref+'</td></tr>';
+  }).join('');
+  var doc='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">'
+    +'<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">'
+    +'<style>*{font-family:Tajawal,Arial;box-sizing:border-box;}@page{size:A4 landscape;margin:10mm}body{padding:5mm}</style></head><body>'
+    +'<div style="text-align:center;background:#0f2d5e;color:#fff;padding:8mm;border-radius:6px;margin-bottom:5mm">'
+    +'<div style="font-size:14pt;font-weight:900">📊 تقرير كشف حساب</div>'
+    +'<div style="font-size:11pt;margin-top:3px">'+fund.icon+' '+fund.name+' — '+(fund.type==='cash'?'صندوق نقدي':'حساب بنكي')+'</div>'
+    +'<div style="font-size:10pt;opacity:.8">الرصيد الحالي: '+(bal>=0?'+':'')+fn(bal)+' ر.ق</div></div>'
+    +'<table style="width:100%;border-collapse:collapse">'
+    +'<thead><tr><th '+TH+'>التاريخ</th><th '+TH+'>البيان</th><th '+TH+'>البرنامج</th><th '+TH+'>المبلغ</th><th '+TH+'>الرصيد التراكمي</th><th '+TH+'>المرجع</th></tr></thead>'
+    +'<tbody>'+(rows||'<tr><td colspan="6" style="padding:20px;text-align:center;color:#94a3b8">لا توجد حركات</td></tr>')+'</tbody>'
+    +'<tfoot><tr style="background:#fef3c7"><td colspan="3" style="padding:6px 8px;font-weight:900;font-size:11pt;border:1px solid #e2e8f0">الرصيد النهائي</td>'
+    +'<td colspan="2" style="padding:6px 8px;font-size:14pt;font-weight:900;color:'+(bal>=0?'#059669':'#dc2626')+';direction:ltr;text-align:left;font-family:monospace;border:1px solid #e2e8f0">'+fn(bal)+' ر.ق</td><td style="border:1px solid #e2e8f0"></td></tr></tfoot>'
+    +'</table></body></html>';
+  if(typeof doPrint==='function') doPrint(doc,true);
+}
+
+// ══ D. تحويل من برنامج إلى الحساب البنكي ══
+// Override renderTransferProg to include bank accounts as destinations
+function fillTransferSelects(){
+  var fromSel=document.getElementById('tr-from-prog');
+  var toSel=document.getElementById('tr-to-prog');
+  if(!fromSel||!toSel)return;
+  var progOpts=(PROGRAMS||[]).map(function(p){return'<option value="prog:'+p.id+'">'+p.icon+' '+p.name+'</option>';}).join('');
+  var fundOpts=(FUNDS||[]).filter(function(f){return f.active&&!isFundLocked(f.id);}).map(function(f){return'<option value="fund:'+f.id+'">'+f.icon+' '+f.name+' (حساب)</option>';}).join('');
+  var all='<option value="">— اختر —</option>'+progOpts+'<optgroup label="الحسابات والصناديق">'+fundOpts+'</optgroup>';
+  fromSel.innerHTML='<option value="">— من البرنامج —</option>'+progOpts;
+  toSel.innerHTML='<option value="">— إلى البرنامج / الحساب —</option>'+progOpts+'<optgroup label="الحسابات والصناديق">'+fundOpts+'</optgroup>';
+}
+
+// Override executeTransfer to handle fund targets
+var _origExTr = typeof executeTransfer==='function' ? executeTransfer : null;
+function executeTransfer(){
+  var fromVal=(document.getElementById('tr-from-prog')||{}).value||'';
+  var toVal=(document.getElementById('tr-to-prog')||{}).value||'';
+  var amount=parseFloat((document.getElementById('tr-amount')||{}).value)||0;
+  var reason=((document.getElementById('tr-reason')||{}).value||'').trim();
+  var date=(document.getElementById('tr-date')||{}).value;
+  var method=(document.getElementById('tr-method')||{}).value||'تحويل داخلي';
+  if(!fromVal){alert('يرجى اختيار البرنامج المُصدِر');return;}
+  if(!toVal){alert('يرجى اختيار الوجهة');return;}
+  if(!amount||amount<=0){alert('يرجى إدخال مبلغ صحيح');return;}
+  if(!reason){alert('يرجى إدخال سبب التحويل');return;}
+  if(!date){alert('يرجى إدخال التاريخ');return;}
+  if(fromVal===toVal){alert('لا يمكن التحويل للنفس');return;}
+
+  var fromParts=fromVal.split(':');
+  var toParts=toVal.split(':');
+  var fromType=fromParts[0]; var fromId=fromParts[1];
+  var toType=toParts[0];   var toId=toParts[1];
+
+  var fromName=fromType==='fund'?((FUNDS||[]).find(function(f){return f.id===fromId;})||{name:fromId}).name:gpn(fromId);
+  var toName  =toType==='fund'  ?((FUNDS||[]).find(function(f){return f.id===toId;})||{name:toId}).name:gpn(toId);
+
+  // فحص القفل
+  if(fromType==='fund'&&isFundLocked(fromId)){checkFundLocked(fromId,'تحويل');return;}
+  if(toType==='fund'&&isFundLocked(toId)){checkFundLocked(toId,'استقبال');return;}
+
+  // فحص الرصيد
+  if(fromType==='prog'){
+    var pb=progBal(fromId);
+    if(amount>(pb.bal||0)&&!confirm('⚠️ رصيد البرنامج ('+fn(pb.bal)+' ر.ق) أقل من المبلغ. المتابعة؟'))return;
+  }
+
+  // إنشاء السندات
+  SEQ.v=(SEQ.v||0)+1; var vouNum=seqStr('v',SEQ.v);
+  var vou={id:gid(),num:vouNum,date:date,recipient:toName,
+    prog:fromType==='prog'?fromId:'',
+    fund:fromType==='fund'?fromId:'',
+    amount:amount,method:method,
+    being:'تحويل إلى '+toName+' — '+reason,
+    ref:'TR-'+vouNum,status:'settled',by:CU?CU.name:'',
+    ts:new Date().toISOString(),isTransfer:true};
+  if(!VOUCHERS)VOUCHERS=[];
+  VOUCHERS.push(vou);
+
+  SEQ.e=(SEQ.e||0)+1;
+  if(!ENTRIES)ENTRIES=[];
+  ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:date,type:'out',
+    prog:fromType==='prog'?fromId:'',fund:fromType==='fund'?fromId:'',
+    cat:'تحويل',desc:'تحويل إلى '+toName+' — '+reason,
+    amount:amount,method:method,ref:vouNum,status:'done',
+    by:CU?CU.name:'',src:'transfer',ts:new Date().toISOString(),
+    hiddenFromReports:true}); // مخفي لمنع الازدواجية
+
+  SEQ.rec=(SEQ.rec||0)+1; var recNum=seqStr('rec',SEQ.rec);
+  var rec={id:gid(),num:recNum,date:date,from:fromName,
+    prog:toType==='prog'?toId:'',fund:toType==='fund'?toId:'',
+    amount:amount,being:'تحويل من '+fromName+' — '+reason,
+    method:method,ref:vouNum,by:CU?CU.name:'',
+    ts:new Date().toISOString(),isTransfer:true};
+  if(!RECEIPTS)RECEIPTS=[];
+  RECEIPTS.push(rec);
+
+  SEQ.e=(SEQ.e||0)+1;
+  ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:date,type:'in',
+    prog:toType==='prog'?toId:'',fund:toType==='fund'?toId:'',
+    cat:'تحويل',desc:'تحويل من '+fromName+' — '+reason,
+    amount:amount,method:method,ref:recNum,status:'done',
+    by:CU?CU.name:'',src:'transfer',ts:new Date().toISOString(),
+    hiddenFromReports:true}); // مخفي لمنع الازدواجية
+
+  if(!TRANSFERS)TRANSFERS=[];
+  TRANSFERS.push({id:gid(),date:date,fromType:fromType,fromId:fromId,fromProg:fromType==='prog'?fromId:'',
+    toType:toType,toId:toId,toProg:toType==='prog'?toId:'',
+    amount:amount,reason:reason,method:method,vouNum:vouNum,recNum:recNum,by:CU?CU.name:''});
+
+  if(typeof log==='function')log('تحويل',fromName+' ← '+fn(amount)+' ر.ق → '+toName,vouNum);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof renderDashboard==='function')renderDashboard();
+  if(typeof renderFunds==='function')renderFunds();
+  if(typeof showSaveInd==='function')showSaveInd('✅ تم التحويل: '+fn(amount)+' ر.ق من '+fromName+' إلى '+toName);
+  alert('✅ تم التحويل بنجاح\nمن: '+fromName+'\nإلى: '+toName+'\nالمبلغ: '+fn(amount)+' ر.ق\nسند الصرف: '+vouNum+'\nسند القبض: '+recNum);
+  if(typeof clearTransferForm==='function')clearTransferForm();
+  if(typeof renderTransferHistory==='function')renderTransferHistory();
+}
+
+// ══ E. استرجاع العهدة — المنطق المحاسبي الصحيح ══
+// يُسجَّل الاسترجاع كـ "استرجاع عهدة" وليس كإيراد جديد
+// في progBal، يُضاف الاسترجاع للرصيد دون احتسابه كإيراد مستقل
+// هذا يعني: rصيد البرنامج = إيرادات أصلية - (عهدة مفتوحة) - (مصروف فعلي عهدة مغلقة) + استرجاعات
+// لكن الاسترجاع لا يُضاف للإيرادات في التقارير — يُظهر في سطر منفصل
+
+// Override confirmCustodyReceipt لمنع الازدواجية
+var _origCCR = typeof confirmCustodyReceipt==='function'?confirmCustodyReceipt:null;
+function confirmCustodyReceipt(id){
+  if(!canDo('custody_settle')){
+    if(!canDo('approve')){alert('⛔ ليس لديك صلاحية');return;}
+  }
+  var c=(CUSTODIES||[]).find(function(x){return x.id==id;});
+  if(!c){alert('العهدة غير موجودة');return;}
+  var invTotal=(c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);
+  var amt=c.cashAmt||c.amount||0;
+  var bal=Math.max(0,amt-invTotal);
+  if(!confirm('✅ تأكيد تصفية العهدة '+c.num+'\nالمستلم: '+(c.recipient||'')+'\nالمبلغ: '+fn(amt)+' ر.ق\nالمُصفّى: '+fn(invTotal)+' ر.ق'+(bal>0?'\nالمُسترجع: '+fn(bal)+' ر.ق':'')+'\n\nهل تريد الإغلاق؟'))return;
+  var today=new Date().toISOString().slice(0,10);
+
+  if(bal>0){
+    // سند قبض للاسترجاع — مرتبط بالعهدة الأصلية
+    SEQ.rec=(SEQ.rec||0)+1;
+    var rNum=seqStr('rec',SEQ.rec);
+    if(!RECEIPTS)RECEIPTS=[];
+    RECEIPTS.push({id:gid(),num:rNum,date:today,from:c.recipient,prog:c.prog,
+      amount:bal,being:'استرجاع عهدة '+c.num+' — '+(c.recipient||''),
+      method:'نقداً',ref:c.num,custodyRef:c.num,custodyId:id,
+      type:'custody-return',by:CU?CU.name:'',ts:new Date().toISOString(),
+      isCustodyReturn:true,
+      isReturnNotIncome:true  // ← علامة: هذا استرجاع وليس إيراداً جديداً
+    });
+    c.returnReceiptNum=rNum;c.returnedAmount=bal;
+
+    // قيد الاسترجاع — مصنّف بوضوح
+    SEQ.e=(SEQ.e||0)+1;
+    if(!ENTRIES)ENTRIES=[];
+    ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,
+      type:'in',prog:c.prog,cat:'استرجاع عهدة',
+      desc:'🔄 استرجاع عهدة '+c.num+' — '+(c.recipient||'')+' — '+fn(bal)+' ر.ق',
+      amount:bal,method:'نقداً',payer:c.recipient,ref:rNum,
+      status:'done',by:CU?CU.name:'',src:'custody-return',
+      custodyRef:c.num,ts:new Date().toISOString(),
+      isReturnNotIncome:true  // ← لا يُحتسب كإيراد جديد في التقارير
+    });
+  }
+
+  c.status='settled';c.settleDate=today;c.receiptConfirmed=true;
+  c.closedAt=today;c.closedBy=CU?CU.name:'';c.invoiceTotal=invTotal;
+
+  if(c.voucherRef){
+    var lv=(VOUCHERS||[]).find(function(v){return v.num===c.voucherRef;});
+    if(lv){lv.status='settled';lv.settleDate=today;}
+  }
+
+  if(typeof auditLog==='function')auditLog('تصفية عهدة',c.num,{spent:invTotal,returned:bal});
+  if(typeof log==='function')log('إغلاق عهدة',(c.recipient||'')+' — '+c.num,c.num);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof renderCustodyClearance==='function')renderCustodyClearance();
+  if(typeof renderCustody==='function')renderCustody();
+  if(typeof renderDashboard==='function')renderDashboard();
+  if(typeof showSaveInd==='function')showSaveInd('✅ تم إغلاق العهدة '+c.num+(bal>0?' — استرجاع: '+fn(bal)+' ر.ق':''));
+  alert('✅ تمت التصفية\n'+c.num+'\nمصروف فعلي: '+fn(invTotal)+' ر.ق'+(bal>0?'\nمُسترجع: '+fn(bal)+' ر.ق\nسند القبض: '+c.returnReceiptNum:''));
+}
+
+// ══ F. تحديث progBal لاستثناء الاسترجاع من الإيرادات ══
+// الإيرادات الحقيقية = كل "in" ما عدا isReturnNotIncome
+// الاسترجاع يُضاف للرصيد لكن لا يُعدّ إيراداً جديداً في التقارير
+var _origProgBal2 = typeof progBal==='function'?progBal:null;
+function progBal(pid){
+  // الإيرادات الحقيقية (استثناء الاسترجاعات — لمنع الازدواجية)
+  var allIn=(ENTRIES||[]).filter(function(e){
+    return e.prog===pid&&e.type==='in'&&!e.hiddenFromReports&&!e.cancelledRef;
+  });
+  var realIncome=allIn.filter(function(e){return !e.isReturnNotIncome;});
+  var returns=allIn.filter(function(e){return !!e.isReturnNotIncome;});
+  var inc=realIncome.reduce(function(s,e){return s+e.amount;},0);
+  var retTotal=returns.reduce(function(s,e){return s+e.amount;},0);
+
+  // سندات الصرف المباشرة (غير محوّلة لعهدة، غير ملغاة)
+  var cuVRefs=new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
+  var vTotal=(VOUCHERS||[]).filter(function(v){
+    return v.prog===pid&&!cuVRefs.has(v.num)&&!v.hiddenFromReports&&v.status!=='cancelled';
+  }).reduce(function(s,v){return s+v.amount;},0);
+
+  // العهد — المصروف الفعلي فقط
+  var cuTotal=0,cuSpent=0,cuOpen=0;
+  (CUSTODIES||[]).forEach(function(c){
+    if(c.prog!==pid||c.hiddenFromReports||c.status==='cancelled')return;
+    var amt=c.cashAmt||c.amount||0;
+    var spent=(c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);
+    if(c.status==='settled'||c.status==='closed'){cuSpent+=spent;}
+    else{cuOpen+=amt;}
+  });
+  cuTotal=cuSpent+cuOpen;
+
+  // المكافآت
+  var rewTotal=(REWARDS||[]).filter(function(rw){
+    return rw.prog===pid&&!rw.hiddenFromReports;
+  }).reduce(function(s,rw){return s+rw.amount;},0);
+
+  // مصروفات مباشرة
+  var directExp=(ENTRIES||[]).filter(function(e){
+    return e.prog===pid&&e.type==='out'&&!e.hiddenFromReports&&!e.cancelledRef
+      &&e.src!=='voucher'&&e.src!=='reward'&&e.src!=='custody'&&e.src!=='transfer';
+  }).reduce(function(s,e){return s+e.amount;},0);
+
+  var exp=vTotal+cuTotal+rewTotal+directExp;
+  // الرصيد = إيرادات + استرجاعات - مصروفات
+  var bal=inc+retTotal-exp;
+  var p=gp(pid);
+  return{inc,retTotal,exp,bal,vTotal,cuTotal,cuSpent,cuOpen,rewTotal,directExp,budget:p?p.budget||0:0};
+}
+
+// ══ G. goPage لصفحة المتعهدين والتحويل ══
+var _gpOrig3=typeof goPage==='function'?goPage:function(){};
+goPage=function(id){
+  _gpOrig3(id);
+  if(id==='vendors') setTimeout(function(){renderVendors();},100);
+  if(id==='transfer-prog') setTimeout(function(){fillTransferSelects();},100);
+  if(id==='funds') setTimeout(function(){renderFunds();},100);
+};
+
+// تهيئة عند الفتح
+setTimeout(function(){
+  fillTransferSelects();
+  if(VENDORS&&VENDORS.length)fillVendorSelect('cu-name-vendor');
+}, 3000);
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  نموذج سند الصرف — خيارات مباشر/عهدة + المتعهدون           ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ تبديل نوع السند (مباشر / عهدة) ══
+function vouSetType(type){
+  var isDirect = (type==='direct');
+  // تحديث مظهر الأزرار
+  var dlbl=document.getElementById('vou-type-direct-lbl');
+  var clbl=document.getElementById('vou-type-custody-lbl');
+  if(dlbl){dlbl.style.background=isDirect?'#0f2d5e':'#fff';dlbl.style.color=isDirect?'#fff':'#374151';dlbl.style.borderColor=isDirect?'#0f2d5e':'#d1d5db';}
+  if(clbl){clbl.style.background=!isDirect?'#b45309':'#fff';clbl.style.color=!isDirect?'#fff':'#374151';clbl.style.borderColor=!isDirect?'#b45309':'#d1d5db';}
+  // إظهار/إخفاء الأقسام
+  var custOpts=document.getElementById('vou-custody-opts');
+  var vendorSec=document.getElementById('vou-vendor-section');
+  var directSt=document.getElementById('vou-direct-status-wrap');
+  var recWrap=document.getElementById('vou-rec-wrap');
+  var recLabel=document.getElementById('vou-rec-label');
+  if(custOpts)  custOpts.style.display=isDirect?'none':'block';
+  if(vendorSec) vendorSec.style.display=isDirect?'none':'block';
+  if(directSt)  directSt.style.display=isDirect?'block':'none';
+  if(recWrap)   recWrap.style.display=isDirect?'block':'none';
+  // عند العهدة: إخفاء حقل المستلم (يُجلب من المتعهد)
+  if(!isDirect){
+    fillVendorSelect('vou-vendor-sel');
+    // render ds list for custody options
+    if(typeof renderDsList==='function') renderDsList('vou','refund_invoiced');
+  }
+  if(recLabel) recLabel.textContent = isDirect?'إصرفوا للسيد/السيدة *':'المستفيد (من المتعهدين)';
+  window._vouType = type;
+}
+
+// ══ عند اختيار متعهد ══
+function vouVendorSelected(){
+  var sel=document.getElementById('vou-vendor-sel');
+  var info=document.getElementById('vou-vendor-info');
+  var recField=document.getElementById('vou-rec');
+  if(!sel)return;
+  var vid=sel.value;
+  if(!vid){if(info)info.style.display='none';return;}
+  var v=(VENDORS||[]).find(function(x){return x.id===vid;});
+  if(!v){if(info)info.style.display='none';return;}
+  // إظهار معلومات المتعهد
+  if(info){
+    var openCu=(CUSTODIES||[]).filter(function(c){return (c.vendorId===v.id||c.recipient===v.name)&&c.status!=='settled'&&c.status!=='closed'&&c.status!=='cancelled';});
+    info.style.display='block';
+    info.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
+      +'<div><b>الاسم:</b> '+v.name+'</div>'
+      +'<div><b>الهاتف:</b> '+v.phone+'</div>'
+      +(v.idNum?'<div><b>الهوية:</b> '+v.idNum+'</div>':'')
+      +(v.org?'<div><b>الجهة:</b> '+v.org+'</div>':'')
+      +'</div>'
+      +(openCu.length?'<div style="margin-top:6px;padding:6px 8px;background:#fef3c7;border-radius:6px;font-size:11px;color:#b45309">⚠️ لديه '+openCu.length+' عهدة مفتوحة: '
+        +openCu.map(function(c){return c.num+' ('+fn(c.cashAmt||c.amount||0)+' ر.ق)';}).join('، ')+'</div>':'');
+    // ملء حقل المستلم تلقائياً
+    if(recField) recField.value = v.name;
+  }
+}
+
+// ══ التحقق عند حفظ سند الصرف ══
+// Hook على openOv لتهيئة النموذج
+var _origOpenOvVou = typeof openOv==='function' ? openOv : function(){};
+openOv = function(id){
+  _origOpenOvVou(id);
+  if(id==='ov-voucher'){
+    // reset to direct type by default
+    setTimeout(function(){
+      vouSetType('direct');
+      fillVendorSelect('vou-vendor-sel');
+    }, 80);
+  }
+};
+
+// ══ التحقق قبل حفظ السند ══
+var _origSaveVoucherFinal = typeof saveVoucher==='function' ? saveVoucher : function(){};
+saveVoucher = function(){
+  var type = window._vouType || 'direct';
+  if(type==='custody'){
+    var vendorSel=document.getElementById('vou-vendor-sel');
+    var vid = vendorSel ? vendorSel.value : '';
+    if(!vid){
+      alert('⛔ يجب اختيار المتعهد من السجل\n\nلا يُسمح بإنشاء عهدة بدون متعهد مسجل.\nاضغط "+ تسجيل متعهد" لإضافة متعهد جديد.');
+      return;
+    }
+    var v=(VENDORS||[]).find(function(x){return x.id===vid;});
+    if(!v){alert('⛔ المتعهد غير موجود في السجل');return;}
+    // تحقق من عهد مفتوحة
+    var check=checkDuplicateCustody(v.name, null);
+    if(!check.ok && !canDo('delete')){
+      alert('⛔ '+check.message);
+      return;
+    }
+    // حفظ vendorId مع السند
+    window._vou_pending_vendor = {id:vid, name:v.name, phone:v.phone};
+  } else {
+    window._vou_pending_vendor = null;
+  }
+  window._vou_pending_type = type;
+  _origSaveVoucherFinal();
+};
+
+// Hook closeOv لإضافة vendor info للسند المحفوظ
+var _origCloseOvFinal = typeof closeOv==='function' ? closeOv : function(){};
+closeOv = function(id){
+  if(id==='ov-voucher' && window._vou_pending_vendor){
+    var lastV=VOUCHERS[VOUCHERS.length-1];
+    if(lastV){
+      lastV.vendorId=window._vou_pending_vendor.id;
+      lastV.vendorName=window._vou_pending_vendor.name;
+      lastV.voucherMainType=window._vou_pending_type||'direct';
+    }
+    // أيضاً للعهدة المرتبطة
+    var lastCu=(CUSTODIES||[]).slice(-1)[0];
+    if(lastCu && window._vou_pending_type==='custody'){
+      lastCu.vendorId=window._vou_pending_vendor.id;
+    }
+  }
+  _origCloseOvFinal(id);
+};
+
+// ══ renderFunds: استدعاء renderProgramsInFunds ══
+var _goPageFinal = typeof goPage==='function' ? goPage : function(){};
+goPage = function(id){
+  _goPageFinal(id);
+  if(id==='funds'){
+    setTimeout(function(){
+      if(typeof renderFunds==='function') renderFunds();
+      if(typeof renderProgramsInFunds==='function') renderProgramsInFunds();
+    }, 100);
+  }
+};
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  نظام الحسابات المستقلة للبرامج + الإغلاق والتسوية          ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+// ══ حساب الرصيد الكامل للبرنامج مع الرصيد الافتتاحي ══
+function progFullBalance(pid){
+  var p=gp(pid);
+  if(!p) return {openingBal:0,inc:0,retTotal:0,exp:0,bal:0,vTotal:0,cuTotal:0,cuSpent:0,cuOpen:0,rewTotal:0};
+  var openingBal=p.openingBalance||0;
+
+  // استخدام progBal المحسّن
+  var pb = typeof progBal==='function' ? progBal(pid) : {inc:0,retTotal:0,exp:0,bal:0,vTotal:0,cuTotal:0,cuSpent:0,cuOpen:0,rewTotal:0};
+
+  // التحويلات من/إلى الحساب البنكي
+  var transfersIn=0,transfersOut=0;
+  (TRANSFERS||[]).forEach(function(t){
+    var toType=t.toType||'prog',toId=t.toProg||t.toId;
+    var frType=t.fromType||'prog',frId=t.fromProg||t.fromId;
+    if(toType==='prog'&&toId===pid) transfersIn+=t.amount||0;
+    if(frType==='prog'&&frId===pid) transfersOut+=t.amount||0;
+  });
+
+  var totalIncome = openingBal + pb.inc + (pb.retTotal||0) + transfersIn;
+  var totalExpense = pb.exp + transfersOut;
+  var finalBal = totalIncome - totalExpense;
+
+  // العهد المفتوحة كالتزامات
+  var openCuAmt=(CUSTODIES||[]).filter(function(c){
+    return c.prog===pid && !c.hiddenFromReports && c.status!=='settled'&&c.status!=='closed'&&c.status!=='cancelled';
+  }).reduce(function(s,c){return s+(c.cashAmt||c.amount||0);},0);
+
+  // السندات المعلقة
+  var cuVR=new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
+  var pendingVou=(VOUCHERS||[]).filter(function(v){
+    return v.prog===pid && !cuVR.has(v.num) && v.status!=='settled'&&v.status!=='cancelled'&&!v.hiddenFromReports;
+  });
+
+  return {
+    openingBal,
+    inc:pb.inc, retTotal:pb.retTotal||0,
+    exp:pb.exp, bal:finalBal,
+    vTotal:pb.vTotal, cuTotal:pb.cuTotal,
+    cuSpent:pb.cuSpent, cuOpen:pb.cuOpen,
+    rewTotal:pb.rewTotal,
+    transfersIn, transfersOut,
+    openCuAmt, pendingVou,
+    budget:p.budget||0,
+    locked:!!p.locked
+  };
+}
+
+// ══ عرض صفحة التسوية ══
+function renderProgSettle(){
+  var pid=(document.getElementById('ps-prog-sel')||{}).value||'';
+  var body=document.getElementById('prog-settle-body');
+  if(!body)return;
+  if(!pid){body.innerHTML='<div style="text-align:center;padding:40px;color:#94a3b8;font-family:Tajawal,Arial">اختر البرنامج لعرض بيانات التسوية</div>';return;}
+
+  var p=gp(pid);
+  var fb=progFullBalance(pid);
+  var fmtD=function(d){if(!d)return'—';var pts=d.split('-');return pts.length===3?pts[2]+'-'+pts[1]+'-'+pts[0]:d;};
+  var locked=p&&p.locked;
+  var lockInfo=p&&p.lockedAt?{at:fmtD(p.lockedAt.slice(0,10)),by:p.lockedBy,num:p.settleNum}:{};
+
+  var html2='';
+
+  // رأس البرنامج
+  html2+='<div style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:10px">';
+  html2+='<div style="background:'+(locked?'#dc2626':'#0f2d5e')+';color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">';
+  html2+='<div style="font-size:13px;font-weight:900;font-family:Tajawal,Arial">'+(p?p.icon+' '+p.name:'')+(locked?' 🔒 مُغلق':'')+'</div>';
+  if(locked){
+    html2+='<div style="font-size:10px;font-family:Tajawal,Arial;opacity:.9">أُغلق بواسطة: '+lockInfo.by+' | '+lockInfo.at+(lockInfo.num?' | رقم التسوية: '+lockInfo.num:'')+'</div>';
+  }
+  html2+='</div>';
+
+  // الأرصدة — 6 مربعات
+  html2+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-bottom:1px solid #e2e8f0">';
+  var kpis=[
+    {label:'الرصيد الافتتاحي',val:fb.openingBal,color:'#0f2d5e'},
+    {label:'إجمالي الإيرادات',val:fb.inc,color:'#059669'},
+    {label:'تمويلات واردة',val:fb.transfersIn,color:'#059669'},
+    {label:'إجمالي المصروفات',val:fb.exp,color:'#dc2626'},
+    {label:'تحويلات صادرة',val:fb.transfersOut,color:'#dc2626'},
+    {label:'الرصيد النهائي',val:fb.bal,color:fb.bal>=0?'#059669':'#dc2626'},
+  ];
+  kpis.forEach(function(k,i){
+    html2+='<div style="padding:10px 12px;text-align:center;border-left:'+(i%3>0?'1px solid #e2e8f0':'none')+';border-bottom:'+(i<3?'1px solid #e2e8f0':'none')+'">';
+    html2+='<div style="font-size:14pt;font-weight:900;font-family:monospace;color:'+k.color+'">'+(k.val>=0?'':'-')+fn(Math.abs(k.val))+'</div>';
+    html2+='<div style="font-size:10px;color:#64748b;font-family:Tajawal,Arial">'+k.label+'</div>';
+    html2+='</div>';
+  });
+  html2+='</div>';
+
+  // تفصيل المصروفات
+  html2+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0">';
+  var exp_items=[
+    {label:'سندات الصرف',val:fb.vTotal},
+    {label:'العهد (مصروف فعلي)',val:fb.cuSpent},
+    {label:'عهد مفتوحة',val:fb.cuOpen},
+    {label:'المكافآت',val:fb.rewTotal},
+  ];
+  exp_items.forEach(function(k,i){
+    html2+='<div style="padding:8px 10px;text-align:center;border-left:'+(i>0?'1px solid #e2e8f0':'none')+'">';
+    html2+='<div style="font-size:12pt;font-weight:700;font-family:monospace;color:#374151">'+fn(k.val)+'</div>';
+    html2+='<div style="font-size:10px;color:#64748b;font-family:Tajawal,Arial">'+k.label+'</div></div>';
+  });
+  html2+='</div>';
+  html2+='</div>';
+
+  // تحذيرات التسوية
+  if(!locked){
+    html2+='<div style="border:1.5px solid #fcd34d;border-radius:10px;padding:14px;margin-bottom:10px;background:#fffbeb">';
+    html2+='<div style="font-size:13px;font-weight:900;color:#b45309;font-family:Tajawal,Arial;margin-bottom:8px">⚠️ بنود تحتاج مراجعة قبل الإغلاق</div>';
+    if(fb.pendingVou&&fb.pendingVou.length){
+      html2+='<div style="font-size:11px;color:#dc2626;font-family:Tajawal,Arial;margin-bottom:4px">🔴 سندات صرف معلقة: '+fb.pendingVou.length+' سند</div>';
+    }
+    if(fb.openCuAmt>0){
+      html2+='<div style="font-size:11px;color:#dc2626;font-family:Tajawal,Arial;margin-bottom:4px">🔴 عهد مفتوحة بمبلغ: '+fn(fb.openCuAmt)+' ر.ق</div>';
+    }
+    if(!fb.pendingVou.length&&!fb.openCuAmt){
+      html2+='<div style="font-size:11px;color:#059669;font-family:Tajawal,Arial">✅ لا توجد بنود معلقة — يمكن الإغلاق مباشرة</div>';
+    }
+    html2+='</div>';
+
+    // نتيجة التسوية
+    html2+='<div style="border:1.5px solid '+(fb.bal>=0?'#86efac':'#fca5a5')+';border-radius:10px;padding:14px;margin-bottom:10px;background:'+(fb.bal>=0?'#f0fdf4':'#fef2f2')+'">';
+    html2+='<div style="font-size:13px;font-weight:900;color:'+(fb.bal>=0?'#059669':'#dc2626')+';font-family:Tajawal,Arial;margin-bottom:8px">'+(fb.bal>=0?'✅ رصيد متبقٍ — سيُحوَّل للحساب البنكي':'❌ عجز — سيُموَّل من الحساب البنكي')+'</div>';
+    html2+='<div style="font-size:16pt;font-weight:900;font-family:monospace;color:'+(fb.bal>=0?'#059669':'#dc2626')+'">'+fn(Math.abs(fb.bal))+' ر.ق</div>';
+    html2+='<div style="font-size:10px;color:#64748b;font-family:Tajawal,Arial;margin-top:4px">'+(fb.bal>=0?'سيُنشأ سند تحويل من البرنامج إلى الحساب البنكي':'سيُنشأ سند تحويل من الحساب البنكي إلى البرنامج')+'</div>';
+    html2+='</div>';
+
+    // أزرار الإغلاق
+    var hasPending=(fb.pendingVou&&fb.pendingVou.length)||fb.openCuAmt>0;
+    html2+='<div style="display:flex;gap:8px;justify-content:flex-end">';
+    if(hasPending){
+      html2+='<button onclick="executeProgSettle(\''+pid+'\',true)" style="padding:10px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">⚠️ إغلاق بصلاحية المدير</button>';
+    }
+    html2+='<button onclick="executeProgSettle(\''+pid+'\',false)" '+(hasPending?'disabled style="opacity:.4;cursor:not-allowed"':'')+' style="padding:10px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">⚖️ إغلاق وتسوية البرنامج</button>';
+    html2+='</div>';
+  } else {
+    // مغلق — عرض سجل التسوية
+    html2+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px;margin-bottom:10px">';
+    html2+='<div style="font-size:13px;font-weight:900;color:#059669;font-family:Tajawal,Arial">✅ البرنامج مغلق ومُسوَّى</div>';
+    html2+='<div style="font-size:11px;color:#64748b;font-family:Tajawal,Arial;margin-top:4px">'
+      +'تاريخ الإغلاق: '+lockInfo.at+' | بواسطة: '+lockInfo.by
+      +(lockInfo.num?' | رقم التسوية: '+lockInfo.num:'')+'</div>';
+    html2+='</div>';
+    html2+='<div style="display:flex;gap:8px;justify-content:flex-end">';
+    html2+='<button onclick="unlockProgram(\''+pid+'\')" style="padding:10px 18px;background:#b45309;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">🔓 فتح البرنامج للتعديل</button>';
+    html2+='</div>';
+  }
+
+  body.innerHTML=html2;
+}
+
+// ══ تنفيذ الإغلاق والتسوية ══
+function executeProgSettle(pid, forceAdmin){
+  if(!canDo('delete')){alert('⛔ صلاحية المدير فقط');return;}
+  var p=gp(pid);if(!p){alert('البرنامج غير موجود');return;}
+  var fb=progFullBalance(pid);
+
+  if(forceAdmin){
+    if(!confirm('⚠️ تجاوز البنود المعلقة بصلاحية المدير\n\nسيتم الإغلاق رغم وجود:\n'
+      +(fb.pendingVou&&fb.pendingVou.length?'• '+fb.pendingVou.length+' سند معلق\n':'')
+      +(fb.openCuAmt>0?'• عهد مفتوحة بمبلغ '+fn(fb.openCuAmt)+' ر.ق\n':'')
+      +'\nهل أنت متأكد؟')) return;
+  }
+
+  var bal=fb.bal;
+  var today=new Date().toISOString().slice(0,10);
+  var settleNum='STL-'+p.id+'-'+Date.now().toString().slice(-6);
+
+  // إنشاء قيد التحويل
+  var bankFund=(FUNDS||[]).find(function(f){return f.type==='bank'&&f.active;});
+  var bankFundId=bankFund?bankFund.id:'fund_bank';
+  var bankProgId='__bank__'; // معرف خاص للحساب البنكي
+
+  if(Math.abs(bal)>0.01){
+    var direction=bal>=0?'من البرنامج إلى البنك':'من البنك إلى البرنامج';
+    var transferAmt=Math.abs(bal);
+
+    SEQ.v=(SEQ.v||0)+1;
+    var vouNum=seqStr('v',SEQ.v);
+    SEQ.rec=(SEQ.rec||0)+1;
+    var recNum=seqStr('rec',SEQ.rec);
+
+    // قيد الصرف
+    if(bal>=0){
+      // رصيد متبقٍ → تحويل من البرنامج للبنك
+      VOUCHERS.push({id:gid(),num:vouNum,date:today,
+        recipient:'الحساب البنكي',prog:pid,fund:bankFundId,
+        amount:transferAmt,method:'تحويل بنكي',
+        being:'تسوية إغلاق البرنامج — '+settleNum,
+        ref:settleNum,status:'settled',by:CU?CU.name:'',
+        ts:new Date().toISOString(),isTransfer:true,isSettlement:true});
+      SEQ.e=(SEQ.e||0)+1;
+      ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'out',
+        prog:pid,fund:bankFundId,cat:'تسوية إغلاق',
+        desc:'تسوية إغلاق البرنامج — '+p.name+' — '+settleNum,
+        amount:transferAmt,ref:vouNum,status:'done',
+        by:CU?CU.name:'',src:'settlement',isSettlement:true,
+        ts:new Date().toISOString()});
+      // قيد القبض في الحساب البنكي
+      RECEIPTS.push({id:gid(),num:recNum,date:today,
+        from:p.name,prog:'',fund:bankFundId,
+        amount:transferAmt,being:'استرجاع رصيد برنامج — '+p.name+' — '+settleNum,
+        method:'تحويل بنكي',ref:vouNum,by:CU?CU.name:'',
+        ts:new Date().toISOString(),isTransfer:true,isSettlement:true});
+      SEQ.e=(SEQ.e||0)+1;
+      ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'in',
+        prog:'',fund:bankFundId,cat:'استرجاع برنامج',
+        desc:'استرجاع رصيد عند إغلاق برنامج '+p.name+' — '+settleNum,
+        amount:transferAmt,ref:recNum,status:'done',
+        by:CU?CU.name:'',src:'settlement',isSettlement:true,
+        ts:new Date().toISOString()});
+    } else {
+      // عجز → تحويل من البنك للبرنامج
+      SEQ.e=(SEQ.e||0)+1;
+      ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'in',
+        prog:pid,fund:bankFundId,cat:'تمويل عجز',
+        desc:'تمويل عجز عند إغلاق برنامج — '+settleNum,
+        amount:transferAmt,ref:recNum,status:'done',
+        by:CU?CU.name:'',src:'settlement',isSettlement:true,
+        ts:new Date().toISOString()});
+      SEQ.e=(SEQ.e||0)+1;
+      ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'out',
+        prog:'',fund:bankFundId,cat:'تمويل برنامج',
+        desc:'تمويل عجز برنامج '+p.name+' — '+settleNum,
+        amount:transferAmt,ref:vouNum,status:'done',
+        by:CU?CU.name:'',src:'settlement',isSettlement:true,
+        ts:new Date().toISOString()});
+    }
+
+    if(!TRANSFERS)TRANSFERS=[];
+    TRANSFERS.push({id:gid(),date:today,
+      fromType:bal>=0?'prog':'fund',fromId:bal>=0?pid:bankFundId,fromProg:bal>=0?pid:'',
+      toType:bal>=0?'fund':'prog',toId:bal>=0?bankFundId:pid,toProg:bal>=0?'':pid,
+      amount:transferAmt,reason:direction+' — إغلاق '+p.name,
+      method:'تحويل بنكي',vouNum:vouNum,recNum:recNum,
+      by:CU?CU.name:'',settleNum:settleNum,isSettlement:true});
+  }
+
+  // إغلاق البرنامج
+  p.locked=true;
+  p.lockedAt=new Date().toISOString();
+  p.lockedBy=CU?CU.name:'';
+  p.settleNum=settleNum;
+  p.settleDate=today;
+  p.settledBal=bal;
+
+  if(typeof auditLog==='function') auditLog('إغلاق وتسوية برنامج',p.name,{settle:settleNum,balance:bal});
+  if(typeof log==='function') log('إغلاق برنامج',p.name+' — '+settleNum,pid);
+  _lastKnownTotal=null;
+  if(typeof cloudSave==='function') cloudSave(true);
+  if(typeof renderDashboard==='function') renderDashboard();
+  if(typeof renderFunds==='function') renderFunds();
+  if(typeof renderProgramsInFunds==='function') renderProgramsInFunds();
+  renderProgSettle();
+  if(typeof showSaveInd==='function') showSaveInd('✅ تم إغلاق البرنامج: '+p.name+' | رقم التسوية: '+settleNum);
+
+  var msg='✅ تمت التسوية والإغلاق\n\nالبرنامج: '+p.name+'\nرقم التسوية: '+settleNum+'\n';
+  if(Math.abs(bal)>0.01){
+    msg+=bal>=0
+      ?'\nتم تحويل '+fn(bal)+' ر.ق إلى الحساب البنكي\nسند الصرف: '+vouNum+'\nسند القبض: '+recNum
+      :'\nتم تمويل عجز '+fn(Math.abs(bal))+' ر.ق من الحساب البنكي';
+  } else {
+    msg+='\nالرصيد صفر — لا حاجة لتحويل';
+  }
+  alert(msg);
+}
+
+// ══ تهيئة صفحة التسوية ══
+var _goPageSettle = typeof goPage==='function' ? goPage : function(){};
+goPage = function(id){
+  _goPageSettle(id);
+  if(id==='prog-settle'){
+    setTimeout(function(){
+      var sel=document.getElementById('ps-prog-sel');
+      if(sel){
+        sel.innerHTML='<option value="">— اختر البرنامج —</option>'
+          +(PROGRAMS||[]).map(function(p){
+            var locked=p.locked;
+            return '<option value="'+p.id+'"'+(locked?' style="color:#dc2626"':'')+'>'+p.icon+' '+p.name+(locked?' 🔒':'')+'</option>';
+          }).join('');
+      }
+    }, 100);
+  }
+};
 
 </script>
 </body>
