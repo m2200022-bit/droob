@@ -276,7 +276,70 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
   </div>
 </div>
 
+<!-- ══════════════ VENDORS PAGE ══════════════ -->
+<div class="page" id="pg-vendors" style="padding:4px 14px">
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">👤 سجل المتعهدين</h2>
+        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">يجب تسجيل المتعهد أولاً قبل إصدار أي عهدة — لا يُسمح بإدخال اسم يدوياً</p>
+      </div>
+      <button onclick="openAddVendor()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ تسجيل متعهد جديد</button>
+    </div>
+    <!-- بحث -->
+    <input id="vendor-search" type="text" placeholder="🔍 بحث بالاسم أو الهاتف أو الهوية..." oninput="renderVendors()"
+      style="width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:9px;font-family:Tajawal,Arial;font-size:13px;margin-bottom:14px;box-sizing:border-box;direction:rtl">
+    <div id="vendors-list"></div>
+  </div>
+</div>
 <!-- LEDGER -->
+<div class="page" id="pg-funds" style="padding:4px 14px">
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">💰 الصناديق والحسابات المالية</h2>
+        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">إدارة الصناديق النقدية والحسابات البنكية وتتبع أرصدتها</p>
+      </div>
+      <button onclick="addFund()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ إضافة صندوق / حساب</button>
+    </div>
+    <!-- إحصائيات -->
+    <div id="funds-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px"></div>
+    <!-- قائمة الصناديق -->
+    <div id="funds-list"></div>
+    <!-- حركات الصندوق -->
+    <div id="fund-transactions" style="margin-top:16px"></div>
+  </div>
+</div>
+<div class="page" id="pg-data-editor" style="padding:0">
+  <!-- Toolbar -->
+  <div style="padding:10px 14px;background:#fff;border-bottom:2px solid #e2e8f0">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <input id="de-q" type="text" placeholder="🔍 بحث في جميع الحقول..."
+        oninput="deRender()"
+        style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;direction:rtl">
+      <select id="de-prog" onchange="deRender()"
+        style="padding:8px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;background:#fff;min-width:160px">
+        <option value="">📂 جميع البرامج</option>
+      </select>
+      <span id="de-count" style="font-size:11px;color:#64748b;white-space:nowrap;font-family:Tajawal,Arial"></span>
+      <button onclick="deExport()" style="padding:8px 14px;background:#0a7c4e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">📥 CSV</button>
+      <button onclick="deInit()" style="padding:8px 10px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">🔄 تحديث</button>
+    </div>
+    <div id="de-tabs" style="display:flex;gap:5px;flex-wrap:wrap">
+      <button onclick="deTab('entries')"   id="de-t-entries"   class="de-tab on">📒 القيود</button>
+      <button onclick="deTab('vouchers')"  id="de-t-vouchers"  class="de-tab">📤 سندات الصرف</button>
+      <button onclick="deTab('custodies')" id="de-t-custodies" class="de-tab">🗂️ العهد</button>
+      <button onclick="deTab('receipts')"  id="de-t-receipts"  class="de-tab">📥 سندات القبض</button>
+      <button onclick="deTab('rewards')"   id="de-t-rewards"   class="de-tab">🎁 المكافآت</button>
+      <button onclick="deTab('programs')"  id="de-t-programs"  class="de-tab">🏷️ البرامج</button>
+      <button onclick="deTab('transfers')" id="de-t-transfers" class="de-tab">🔀 التحويلات</button>
+    </div>
+  </div>
+  <!-- Table -->
+  <div style="overflow-x:auto;flex:1">
+    <div id="de-tbl-wrap" style="min-height:200px"></div>
+  </div>
+</div>
 <div class="page" id="pg-ledger">
   <div class="ph"><div><div class="ph-t">📋 سجل القيود اليومية</div><div class="ph-s">جميع الحركات المالية</div></div><div style="display:flex;gap:8px"><button class="tb" onclick="printComprehensiveProgReport()" style="background:#7d3c98;color:#fff">📊 التقرير المالي الشامل</button>
     <button class="tb" onclick="printProgramFullReport()" style="background:#0f2d5e;color:#fff">🖨️ تقرير شامل بالبرنامج</button><button class="tb-m" onclick="openAddEntry()">＋ قيد جديد</button></div></div>
@@ -1335,19 +1398,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <input id="cleanup-cu-num" type="text" placeholder="EH-0081 أو EH-0081,EH-0082,EH-0083" style="flex:1;min-width:180px;padding:9px 12px;border:2px solid #fca5a5;border-radius:8px;font-family:monospace;font-size:12px;outline:none">
       <button onclick="doCleanupCustody()" style="background:#c0392b;color:#fff;border:none;border-radius:8px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🗑️ حذف وحفظ على Firebase</button>
-      <button onclick="forceSyncNow()" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap">🔄 مزامنة Firebase</button>
-    </div>
-    <div style="font-size:10px;color:#888;margin-bottom:8px">أدخل رقم واحد أو عدة أرقام مفصولة بفاصلة. مثال: EH-0081,EH-0082,EH-0083</div>
-    <div id="cleanup-cu-list" style="max-height:260px;overflow-y:auto;border:1.5px solid var(--bdr);border-radius:8px;background:#fafbfc;min-height:40px;font-size:11px"></div>
-  </div>
-
-  </div>
-</div><!-- ── نافذة إلغاء سند معتمد ── -->
-<div id="ov-cancel-vou" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto">
-  <div style="max-width:500px;margin:60px auto;background:#fff;border-radius:12px;font-family:Tajawal,Arial;direction:rtl">
-    <div style="background:#dc2626;color:#fff;padding:12px 18px;border-radius:12px 12px 0 0;font-weight:900;font-size:14px">⚠️ إلغاء سند مالي</div>
-    <div style="padding:20px">
-      <div id="cancel-vou-info" style="background:#fef2f2;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;color:#374151"></div>
+="background:#fef2f2;border-radius:8px;padding:12px;margin-bottom:14px;font-size:13px;color:#374151"></div>
       <label style="display:block;font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">سبب الإلغاء *</label>
       <textarea id="cancel-vou-reason" rows="3" placeholder="أدخل سبب الإلغاء..." style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;box-sizing:border-box;resize:none"></textarea>
       <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
@@ -1406,22 +1457,6 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 </div>
 <!-- ══════════════════════════════════════════════════════════════ -->
 
-<!-- ══════════════ VENDORS PAGE ══════════════ -->
-<div class="page" id="pg-vendors" style="padding:4px 14px">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div>
-        <h2 style="font-family:Tajawal,Arial;font-size:16px;font-weight:900;color:#0f2d5e;margin:0">👤 سجل المتعهدين</h2>
-        <p style="font-family:Tajawal,Arial;font-size:12px;color:#64748b;margin:3px 0 0">يجب تسجيل المتعهد أولاً قبل إصدار أي عهدة — لا يُسمح بإدخال اسم يدوياً</p>
-      </div>
-      <button onclick="openAddVendor()" style="padding:9px 18px;background:#0f2d5e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:13px;font-weight:700">+ تسجيل متعهد جديد</button>
-    </div>
-    <!-- بحث -->
-    <input id="vendor-search" type="text" placeholder="🔍 بحث بالاسم أو الهاتف أو الهوية..." oninput="renderVendors()"
-      style="width:100%;padding:10px 14px;border:1.5px solid #d1d5db;border-radius:9px;font-family:Tajawal,Arial;font-size:13px;margin-bottom:14px;box-sizing:border-box;direction:rtl">
-    <div id="vendors-list"></div>
-  </div>
-</div>
 <!-- نافذة إضافة متعهد -->
 <div id="ov-vendor" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;overflow-y:auto">
   <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:12px;font-family:Tajawal,Arial;direction:rtl">
@@ -1493,36 +1528,6 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 <!-- ══════════════════════════════════════════════════════════════ -->
 
 <!-- ══════════════ DATA EDITOR PAGE ══════════════ -->
-<div class="page" id="pg-data-editor" style="padding:0">
-  <!-- Toolbar -->
-  <div style="padding:10px 14px;background:#fff;border-bottom:2px solid #e2e8f0">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-      <input id="de-q" type="text" placeholder="🔍 بحث في جميع الحقول..."
-        oninput="deRender()"
-        style="flex:1;min-width:180px;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;direction:rtl">
-      <select id="de-prog" onchange="deRender()"
-        style="padding:8px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;background:#fff;min-width:160px">
-        <option value="">📂 جميع البرامج</option>
-      </select>
-      <span id="de-count" style="font-size:11px;color:#64748b;white-space:nowrap;font-family:Tajawal,Arial"></span>
-      <button onclick="deExport()" style="padding:8px 14px;background:#0a7c4e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">📥 CSV</button>
-      <button onclick="deInit()" style="padding:8px 10px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">🔄 تحديث</button>
-    </div>
-    <div id="de-tabs" style="display:flex;gap:5px;flex-wrap:wrap">
-      <button onclick="deTab('entries')"   id="de-t-entries"   class="de-tab on">📒 القيود</button>
-      <button onclick="deTab('vouchers')"  id="de-t-vouchers"  class="de-tab">📤 سندات الصرف</button>
-      <button onclick="deTab('custodies')" id="de-t-custodies" class="de-tab">🗂️ العهد</button>
-      <button onclick="deTab('receipts')"  id="de-t-receipts"  class="de-tab">📥 سندات القبض</button>
-      <button onclick="deTab('rewards')"   id="de-t-rewards"   class="de-tab">🎁 المكافآت</button>
-      <button onclick="deTab('programs')"  id="de-t-programs"  class="de-tab">🏷️ البرامج</button>
-      <button onclick="deTab('transfers')" id="de-t-transfers" class="de-tab">🔀 التحويلات</button>
-    </div>
-  </div>
-  <!-- Table -->
-  <div style="overflow-x:auto;flex:1">
-    <div id="de-tbl-wrap" style="min-height:200px"></div>
-  </div>
-</div>
 <!-- ══════════════════════════════════════════════ -->
 
 <script>
@@ -4607,6 +4612,7 @@ function goPage(id){
   window._curPage=id;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const pg=document.getElementById('pg-'+id);if(pg)pg.classList.add('active');
+  var _pg=document.getElementById('pages');if(_pg)_pg.scrollTop=0;
   document.querySelectorAll('.ni').forEach(e=>e.classList.remove('on'));
   const ni=document.getElementById('ni-'+id);if(ni)ni.classList.add('on');
   const it=NAV_DEF.find(n=>n.id===id);
@@ -9909,7 +9915,7 @@ function renderVendors(){
       || (v.idNum||'').indexOf(q)>-1;
   });
   if(!list.length){
-    wrap.innerHTML='<div style="text-align:center;padding:40px;color:#94a3b8;font-family:Tajawal,Arial"><div style="font-size:40px">👤</div><div style="font-size:14px;margin-top:10px">لا يوجد متعهدون مسجلون</div><div style="font-size:12px;margin-top:5px;color:#64748b">اضغط "+ تسجيل متعهد جديد" لإضافة أول متعهد</div></div>';
+    wrap.innerHTML='<div style="text-align:center;padding:16px 40px;color:#94a3b8;font-family:Tajawal,Arial"><div style="font-size:30px">👤</div><div style="font-size:13px;margin-top:6px">لا يوجد متعهدون مسجلون</div><div style="font-size:11px;margin-top:4px;color:#64748b">اضغط "+ تسجيل متعهد جديد" لإضافة أول متعهد</div></div>';
     return;
   }
   wrap.innerHTML = list.map(function(v){
@@ -10303,7 +10309,7 @@ function progBal(pid){
 var _gpOrig3=typeof goPage==='function'?goPage:function(){};
 goPage=function(id){
   _gpOrig3(id);
-  if(id==='vendors') setTimeout(function(){renderVendors();},100);
+  if(id==='vendors'){renderVendors();setTimeout(function(){renderVendors();},200);}
   if(id==='transfer-prog') setTimeout(function(){fillTransferSelects();},100);
   if(id==='funds') setTimeout(function(){renderFunds();},100);
 };
@@ -10415,21 +10421,23 @@ saveVoucher = function(){
   var type = window._vouType || 'direct';
   if(type==='custody'){
     var vendorSel=document.getElementById('vou-vendor-sel');
-    var vid = vendorSel ? vendorSel.value : '';
-    if(!vid){
-      alert('⛔ يجب اختيار المتعهد من السجل\n\nلا يُسمح بإنشاء عهدة بدون متعهد مسجل.\nاضغط "+ تسجيل متعهد" لإضافة متعهد جديد.');
+    var vid = window._selectedVendorId || (vendorSel ? vendorSel.value : '');
+    var selOpt = vendorSel ? vendorSel.options[vendorSel.selectedIndex] : null;
+    var vName = window._selectedVendorName
+      || (selOpt && selOpt.value ? (selOpt.getAttribute('data-vname') || selOpt.text.split(' — ')[0]) : '');
+    if(!vid && !vName){
+      alert('⚠️ يرجى اختيار المتعهد من قائمة اختر المتعهد من السجل');
       return;
     }
-    var v=(VENDORS||[]).find(function(x){return x.id===vid;});
-    if(!v){alert('⛔ المتعهد غير موجود في السجل');return;}
-    // تحقق من عهد مفتوحة
+    var v = (VENDORS||[]).find(function(x){return x.id===vid;});
+    if(!v && vName) v = (VENDORS||[]).find(function(x){return x.name===vName;});
+    if(!v) v = {id: vid || ('v_'+Date.now()), name: vName, phone: ''};
     var check=checkDuplicateCustody(v.name, null);
     if(!check.ok && !canDo('delete')){
       alert('⛔ '+check.message);
       return;
     }
-    // حفظ vendorId مع السند
-    window._vou_pending_vendor = {id:vid, name:v.name, phone:v.phone};
+    window._vou_pending_vendor = {id:v.id, name:v.name, phone:v.phone||''};
   } else {
     window._vou_pending_vendor = null;
   }
