@@ -323,6 +323,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
       </select>
       <span id="de-count" style="font-size:11px;color:#64748b;white-space:nowrap;font-family:Tajawal,Arial"></span>
       <button onclick="deExport()" style="padding:8px 14px;background:#0a7c4e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">📥 CSV</button>
+      <button onclick="deleteByNum()" style="padding:8px 14px;background:#dc2626;color:#fff;border:none;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">🗑️ حذف بالرقم</button>
       <button onclick="deInit()" style="padding:8px 10px;background:#f0f4f8;color:#374151;border:1.5px solid #d1d5db;border-radius:8px;cursor:pointer;font-family:Tajawal,Arial;font-size:12px;font-weight:700">🔄 تحديث</button>
     </div>
     <div id="de-tabs" style="display:flex;gap:5px;flex-wrap:wrap">
@@ -803,7 +804,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
     <div class="tw"><table>
       <thead><tr>
         <th>الرقم</th><th>النوع</th><th>المستلم</th><th>البرنامج</th>
-        <th>المبلغ</th><th>الفواتير</th><th>المتبقي</th>
+        <th>البيان</th><th>المبلغ</th><th>الفواتير</th><th>المتبقي</th>
         <th>التاريخ</th><th>الحالة</th><th>إجراء</th>
       </tr></thead>
       <tbody id="cc-body"></tbody>
@@ -932,7 +933,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 
 <!-- Voucher -->
 <div class="ov" id="ov-voucher" onclick="if(event.target.id==='ov-voucher')closeOv('ov-voucher')"><div class="modal modal-lg">
-  <div class="mh"><span class="mt">🧾 إصدار سند صرف</span><button class="mx" onclick="closeOv('ov-voucher')">✕</button></div>
+  <div class="mh"><span class="mt">🧾 إصدار سند صرف</span><div style="display:flex;gap:6px"><button onclick="resetVoucherForm()" title="تفريغ المدخلات" style="background:#f0f4f8;border:1.5px solid #d1d5db;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:14px">🔄</button><button class="mx" onclick="closeOv('ov-voucher')">✕</button></div></div>
   <div class="err-box" id="vou-err"></div>
   <!-- حالة السند -->
   <!-- ══ خيار نوع السند: مباشر أو عهدة ══ -->
@@ -1166,7 +1167,18 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
   </div>
   <div class="fr"><div class="fg"><label class="fl">اسم المستلم *</label><input class="fi" type="text" id="cu-name"></div><div class="fg"><label class="fl">رقم الجوال *</label><input class="fi" type="tel" id="cu-phone" maxlength="8" inputmode="numeric" placeholder="XXXXXXXX" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)"></div></div>
   <div class="fr"><div class="fg"><label class="fl">البرنامج *</label><select class="fs" id="cu-prog-s"></select></div><div class="fg"><label class="fl">تاريخ الصرف *</label><input class="fi" type="date" id="cu-date"></div></div>
-  <div class="fr"><div class="fg"><label class="fl">تاريخ الإرجاع المتوقع *</label><input class="fi" type="date" id="cu-return-date"></div><div class="fg"><label class="fl">ملاحظة</label><input class="fi" type="text" id="cu-note"></div></div>
+  <div class="fr"><div class="fg"><label class="fl">تاريخ الإرجاع المتوقع *</label><input class="fi" type="date" id="cu-return-date"></div><div class="fg"><label class="fl">نوعية الصرف</label>
+      <input id="cu-exp-type-input" list="cu-exp-type-list" placeholder="اكتب للبحث..." oninput="cuExpTypeFromInput()" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;direction:rtl;background:#fff">
+      <datalist id="cu-exp-type-list"></datalist>
+      <input type="hidden" id="cu-exp-type" value="">
+    </div>
+    <div class="fg" id="cu-exp-sub-wrap" style="display:none">
+      <label class="fl">التصنيف الفرعي</label>
+      <input id="cu-exp-sub-input" list="cu-exp-sub-list" placeholder="اكتب للبحث..." autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-family:Tajawal,Arial;font-size:13px;direction:rtl;background:#fff">
+      <datalist id="cu-exp-sub-list"></datalist>
+      <input type="hidden" id="cu-exp-sub" value="">
+    </div>
+    <div class="fg"><label class="fl">ملاحظة</label><input class="fi" type="text" id="cu-note"></div></div>
   <!-- نقدي -->
   <div id="cu-cash-section">
     <div class="fr"><div class="fg"><label class="fl">المبلغ (ر.ق) *</label><input class="fi" type="number" id="cu-cash-amt" min="0" step="0.01" placeholder="0.00"></div><div class="fg"><label class="fl">وصف الصرف *</label><input class="fi" type="text" id="cu-cash-desc" placeholder="سبب صرف العهدة النقدية..."></div></div>
@@ -1535,6 +1547,7 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 var _fbReady=false,_applying=false,_lastKnownTotal=null,_lastHash=null,_saveT=null,_db=null,ROOT=null;
 // Ensure critical functions are globally accessible
 window._droobReady=false;
+
 // ============================================================ STATE
 let ORG={name:'شركة دروب للخدمات السياحية',logo:null};
 let PROGRAMS=[
@@ -1627,26 +1640,31 @@ let eType='out',cuItems=[];
 const td=()=>new Date().toISOString().split('T')[0];
 const fn=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fd=d=>{if(!d)return'—';try{return new Date(d+'T00:00:00').toLocaleDateString('ar-SA',{year:'numeric',month:'short',day:'numeric'})}catch{return d}};
-const gp=id=>PROGRAMS.find(p=>p.id===id);
+const gp=id=>{var _id=id&&id.startsWith('prog:')?id.slice(5):id;return PROGRAMS.find(p=>p.id===_id);};
 const gpn=id=>{const p=gp(id);return p?p.icon+' '+p.name:id||'—'};
 const gid=()=>nextId++;
 const seqStr=(t,n)=>{const m={e:'QD',v:'SD',c:'EH',r:'MK',ao:'AS',rec:'SQ'};return(m[t]||'XX')+'-'+String(n).padStart(4,'0')};
-const canSee=pid=>!CU?false:CU.role==='admin'||CU.progs==='all'||(Array.isArray(CU.progs)&&CU.progs.includes(pid));
+const canSee=pid=>{var _pid=pid&&pid.startsWith('prog:')?pid.slice(5):pid;return !CU?false:CU.role==='admin'||CU.progs==='all'||(Array.isArray(CU.progs)&&CU.progs.includes(_pid));};
 const visP=()=>PROGRAMS.filter(p=>canSee(p.id));
 const isAdm=()=>CU&&CU.role==='admin';
 function log(a,d,r=''){AUDIT.unshift({ts:new Date().toISOString(),user:CU?CU.name:'',action:a,detail:d,ref:r});if(AUDIT.length>500)AUDIT.pop();cloudSave();}
 function progBal(pid){
+  // نظّف الـ pid
+  pid = (pid && pid.startsWith('prog:')) ? pid.slice(5) : pid;
   // ══ الإيرادات ══
   // جميع القيود "in" بما فيها استرجاعات العهد (الاسترجاع يُعيد المبلغ للرصيد)
   const allIn = (ENTRIES||[]).filter(function(e){
-    return e.prog===pid && e.type==='in' && !e.hiddenFromReports && !e.cancelledRef;
+    var ep2=e.prog&&e.prog.startsWith('prog:')?e.prog.slice(5):e.prog;
+    return ep2===pid && e.type==='in' && !e.hiddenFromReports && !e.cancelledRef && !e.isReturnNotIncome;
   });
   const inc = allIn.reduce(function(s,e){return s+e.amount;},0);
+  const retTotal=0; // الاسترجاع محسوب تلقائياً عبر cuSpent
 
   // ══ سندات الصرف المباشرة (غير المحوّلة لعهدة، وغير الملغاة) ══
   const cuVRefs = new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
   const vTotal = (VOUCHERS||[]).filter(function(v){
-    return v.prog===pid && !cuVRefs.has(v.num) && !v.hiddenFromReports && v.status!=='cancelled';
+    var vp=v.prog&&v.prog.startsWith('prog:')?v.prog.slice(5):v.prog;
+    return vp===pid && !cuVRefs.has(v.num) && !v.hiddenFromReports && v.status!=='cancelled';
   }).reduce(function(s,v){return s+v.amount;},0);
 
   // ══ العهد — المنطق الصحيح لمنع الازدواجية ══
@@ -1657,7 +1675,8 @@ function progBal(pid){
   var cuSpent = 0; // المصروف الفعلي من العهد المغلقة
   var cuOpen  = 0; // مبلغ العهد المفتوحة
   (CUSTODIES||[]).forEach(function(c){
-    if(c.prog!==pid || c.hiddenFromReports || c.status==='cancelled') return;
+    var cp=c.prog&&c.prog.startsWith('prog:')?c.prog.slice(5):c.prog;
+    if(cp!==pid || c.hiddenFromReports || c.status==='cancelled') return;
     var amt = c.cashAmt||c.amount||0;
     var spent = (c.invoices||c.items||[]).reduce(function(s,x){return s+(x.amount||0);},0);
     if(c.status==='settled'||c.status==='closed'){
@@ -1672,12 +1691,13 @@ function progBal(pid){
 
   // ══ المكافآت ══
   const rewTotal = (REWARDS||[]).filter(function(rw){
-    return rw.prog===pid && !rw.hiddenFromReports;
+    var rp=rw.prog&&rw.prog.startsWith('prog:')?rw.prog.slice(5):rw.prog;return rp===pid && !rw.hiddenFromReports;
   }).reduce(function(s,rw){return s+rw.amount;},0);
 
   // ══ المصروفات المباشرة من القيود ══
   const directExp = (ENTRIES||[]).filter(function(e){
-    return e.prog===pid && e.type==='out' && !e.hiddenFromReports && !e.cancelledRef
+    var ep=e.prog&&e.prog.startsWith('prog:')?e.prog.slice(5):e.prog;
+    return ep===pid && e.type==='out' && !e.hiddenFromReports && !e.cancelledRef
       && e.src!=='voucher' && e.src!=='reward' && e.src!=='custody' && e.src!=='transfer';
   }).reduce(function(s,e){return s+e.amount;},0);
 
@@ -1701,7 +1721,7 @@ function checkProgBudget(progId,amount,warnElId,errElId){
   w.classList.remove('show');if(e2)e2.classList.remove('show');return true;
 }
 function checkBudget(){const p=document.getElementById('e-prog').value;const a=document.getElementById('e-amount').value;if(eType==='out')checkProgBudget(p,a,'e-budget-warn',null);}
-function checkVouBudget(){checkProgBudget(document.getElementById('vou-prog-s').value,document.getElementById('vou-amt').value,'vou-budget-warn',null);}
+function checkVouBudget(){var _rv=document.getElementById('vou-prog-s').value;var _pv=_rv&&_rv.startsWith('prog:')?_rv.slice(5):_rv;checkProgBudget(_pv,document.getElementById('vou-amt').value,'vou-budget-warn',null);}
 // ============================== حالة السند (قائمة موحّدة لسند الصرف وسند صرف العهدة) ==============================
 // حقل واحد باختيار حصري (checkbox بمظهر مربّع، لكن اختيار واحد فقط في كل مرة) بدل نوع الصرف/التسليم المنفصلين سابقاً
 const DOC_STATUS_LIST=[
@@ -2007,7 +2027,7 @@ function fillAoCatSel(){
   var cats=[...new Set((ASSET_INV||[]).map(function(a){return a.cat;}))].filter(Boolean);
   sel.innerHTML='<option value="">كل الفئات</option>'+cats.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
 }
-function checkProgBudgetStrict(progId,amount,opName){if(!progId||!amount||amount<=0)return true;var pb=typeof progBal==='function'?progBal(progId):{bal:0};var bal=pb.bal||0;if(amount>bal){var pn=typeof gpn==='function'?gpn(progId):progId;var deficit=amount-bal;var msg='⚠️ رصيد البرنامج غير كافٍ\n\nالبرنامج: '+pn+'\nالرصيد المتاح: '+(typeof fn==='function'?fn(bal):bal)+' ر.ق\nالمبلغ المطلوب: '+(typeof fn==='function'?fn(amount):amount)+' ر.ق\nالعجز: '+(typeof fn==='function'?fn(deficit):deficit)+' ر.ق\n\nهل تريد الإصدار على أي حال؟ (سيصبح الرصيد سالباً)';return confirm(msg);}return true;}
+function checkProgBudgetStrict(progId,amount,opName){if(!progId||!amount||amount<=0)return true;var _pid=(progId&&progId.startsWith('prog:'))?progId.slice(5):progId;var pb=typeof progBal==='function'?progBal(_pid):{bal:0};var bal=pb.bal||0;if(amount>bal){var pn=typeof gpn==='function'?gpn(_pid):_pid;var deficit=amount-bal;var msg='⚠️ رصيد البرنامج غير كافٍ\n\nالبرنامج: '+pn+'\nالرصيد المتاح: '+(typeof fn==='function'?fn(bal):bal)+' ر.ق\nالمبلغ المطلوب: '+(typeof fn==='function'?fn(amount):amount)+' ر.ق\nالعجز: '+(typeof fn==='function'?fn(deficit):deficit)+' ر.ق\n\nهل تريد الإصدار على أي حال؟ (سيصبح الرصيد سالباً)';return confirm(msg);}return true;}
 // ══════════════════════════════════════════════════════════════
 // HIDE FROM REPORTS
 // ══════════════════════════════════════════════════════════════
@@ -2162,7 +2182,7 @@ function renderCustodyClearance(){
 
   // Fill prog filter
   var ps=document.getElementById('ccq-prog');
-  if(ps&&ps.options.length<=1){
+  if(ps){
     ps.innerHTML='<option value="">كل البرامج</option>'
       +(visP()||[]).map(function(p){return '<option value="'+p.id+'">'+p.icon+' '+p.name+'</option>';}).join('');
   }
@@ -4054,57 +4074,46 @@ function finalizeCustodySettle(){
   if(!item){alert('خطأ: السجل غير موجود');return;}
   if(!item.invoices)item.invoices=[];
   var invTotal=item.invoices.reduce(function(s,inv){return s+(inv.amount||0);},0);
-  if(invTotal<=0){alert('⚠️ يجب إدخال فاتورة واحدة على الأقل');return;}
-  var bal=(item.amount||0)-invTotal;
+  if(invTotal<=0){alert('يجب إدخال فاتورة واحدة على الأقل');return;}
+  var bal=Math.max(0,(item.amount||0)-invTotal);
   var today=new Date().toISOString().slice(0,10);
-  // Handle remaining balance
   if(bal>0){
     var actionEl=document.getElementById('settle-action-sel');
     var action=(actionEl||{}).value||'keep';
     if(action==='return'){
-      // Create receipt to return money to program
+      // منع التكرار
+      var dupCheck=RECEIPTS.find(function(x){return x.custodyRef===item.num&&x.type==='custody_return';});
+      if(dupCheck){alert('يوجد سند قبض استرجاع مرتبط بهذه العهدة بالفعل.');return;}
       if(!RECEIPTS)RECEIPTS=[];
-      if(!SEQ.rec)SEQ.rec=0;
-      SEQ.rec++;var rNum=seqStr('rec',SEQ.rec);
-      var rec={id:gid(),num:rNum,date:today,from:item.recipient,prog:item.prog,amount:bal,
-        being:'استرداد عهدة — '+item.num,method:'نقداً',type:'prog',
-        ref:item.num,by:CU?CU.name:'',ts:new Date().toISOString()};
+      if(!SEQ.rec)SEQ.rec=0;SEQ.rec++;
+      var rNum=seqStr('rec',SEQ.rec);
+      var _recProg=item.prog&&item.prog.startsWith('prog:')?item.prog.slice(5):item.prog;
+      var rec={id:gid(),num:rNum,date:today,from:item.recipient,prog:_recProg,amount:bal,
+        being:'استرداد عهدة — '+item.num,method:'نقداً',
+        type:'custody_return',    // ليس 'prog' — نوع خاص للاسترجاع
+        ref:item.num,custodyRef:item.num,custodyId:item.id,
+        status:'posted',isReturnNotIncome:true,
+        by:CU?CU.name:'',ts:new Date().toISOString()};
       RECEIPTS.push(rec);
-      // Add as revenue entry
-      if(!SEQ.e)SEQ.e=0;
-      SEQ.e++;
-      ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'in',prog:item.prog,
-        cat:(IN_CATS||[])[0]||'إيرادات',
-        desc:'استرداد عهدة '+item.num+' من '+item.recipient,
-        amount:bal,method:'نقداً',payer:item.recipient,ref:item.num,status:'done',
-        by:CU?CU.name:'',src:'custody-return',ts:new Date().toISOString()});
-      item.returnReceiptNum=rNum;
-      alert('✅ تم إنشاء سند قبض رقم '+rNum+' بقيمة '+fn(bal)+' ر.ق\nتم إضافة المبلغ لرصيد البرنامج');
-      setTimeout(function(){printReceiptDoc(rec);},600);
-    } else {
-      alert('ℹ️ تم إبقاء المبلغ '+fn(bal)+' ر.ق في الذمة حتى التسوية اللاحقة');
+      // لا نُضيف ENTRIES.push type='in' — الاسترجاع ليس إيراداً
+      item.returnReceiptNum=rNum;item.returnReceiptId=rec.id;item.returnedAmount=bal;
+      alert('تم إنشاء سند قبض رقم '+rNum+' بقيمة '+fn(bal)+' ر.ق');
+      setTimeout(function(){if(typeof printReceiptDoc==='function')printReceiptDoc(rec);},600);
+    }else{
+      alert('تم إبقاء المبلغ '+fn(bal)+' ر.ق في الذمة حتى التسوية اللاحقة');
     }
   }
-  // Mark as settled
-  item.status='settled';
-  item.settleDate=today;
-  item.invoiceTotal=invTotal;
+  item.status='settled';item.settleDate=today;item.invoiceTotal=invTotal;
   window._settleIsVou=false;
   if(typeof log==='function')log('تصفية عهدة',item.recipient+' — '+item.num,item.num);
   closeOv('ov-settle-new');
+  _lastKnownTotal=null;_lastHash=null;
   if(typeof cloudSave==='function')cloudSave(true);
   renderCustodyClearance();
   if(typeof renderCustody==='function')renderCustody();
   if(typeof renderLedger==='function')renderLedger();
   if(typeof renderRevenues==='function')renderRevenues();
 }
-
-
-
-
-
-
-
 function openRefundSettle(vid){
   var v=VOUCHERS.find(function(x){return x.id==vid;});
   if(!v){alert('السند غير موجود');return;}
@@ -4424,84 +4433,72 @@ function _removeSettleInvSmart(invId){
 function finalizeSettleSmart(){
   var c=CUSTODIES.find(function(x){return x.id===window._settleId;});
   if(!c){alert('خطأ: العهدة غير موجودة');return;}
-  if(c.awaitingDisbursement){alert('⛔ لا يمكن إتمام تصفية/إقفال هذه العهدة قبل تسجيل الصرف الفعلي لها (لم يُخصم المبلغ من رصيد البرنامج بعد).\n\nيرجى الضغط على زر "💰 تسجيل الصرف الفعلي" أولاً (صلاحية المدير).');return;}
-  if(c.pendingDelivery&&!c.receiptConfirmed){alert('⛔ لا يمكن إتمام تصفية/إقفال هذه العهدة نهائياً قبل تأكيد استلام المستفيد لها.\n\nيمكنك الاستمرار بإضافة فواتير التصفية، لكن يجب أولاً الضغط على زر "✅ تأكيد استلام المستفيد" من صفحة العهد قبل إتمام الإقفال النهائي.');return;}
-  if(c.pendingDelivery&&!isAdm()){alert('⛔ تصفية/إقفال العهد النقدية المعلّقة (التي لم تُسلَّم عند الصرف) متاح للمدير فقط.');return;}
+  if(c.awaitingDisbursement){alert('لا يمكن إتمام التصفية قبل تسجيل الصرف الفعلي.');return;}
+  if(c.pendingDelivery&&!c.receiptConfirmed){alert('لا يمكن إتمام التصفية قبل تأكيد الاستلام.');return;}
+  if(c.pendingDelivery&&!isAdm()){alert('متاح للمدير فقط.');return;}
   var invTotal=(c.invoices||[]).reduce(function(s,inv){return s+(inv.amount||0);},0);
-  if(invTotal<=0){alert('⚠️ يجب إضافة فاتورة واحدة على الأقل قبل التصفية');return;}
+  if(invTotal<=0){alert('يجب إضافة فاتورة واحدة على الأقل قبل التصفية');return;}
   var totalAmt=c.amount||c.cashAmt||0;
   if(window._settleIsVou&&window._settleVoucherId){
     var v2=VOUCHERS.find(function(x){return x.id===window._settleVoucherId;});
     if(v2)totalAmt=v2.amount;
   }
-  var bal=totalAmt-invTotal;
+  var bal=Math.max(0,totalAmt-invTotal);
   var today=new Date().toISOString().slice(0,10);
-  var wasAlreadySettled=c.status==='settled';
-  // Handle remaining balance
+  var wasAlreadySettled=(c.status==='settled');
   if(bal>0){
     var actionEl=document.querySelector('input[name="settle-action"]:checked');
     var action=actionEl?actionEl.value:'keep';
     if(action==='return'||action==='receipt_close'){
-      var existingRec=wasAlreadySettled&&c.returnReceiptNum?RECEIPTS.find(function(x){return x.num===c.returnReceiptNum;}):null;
+      var existingRec=c.returnReceiptNum?RECEIPTS.find(function(x){return x.num===c.returnReceiptNum;}):null;
       if(existingRec){
         existingRec.amount=bal;existingRec.date=today;
-        var existingEn=(ENTRIES||[]).find(function(e){return e.src==='custody-return'&&e.ref===c.num;});
-        if(existingEn){existingEn.amount=bal;existingEn.date=today;existingEn.desc='استرداد عهدة '+c.num+' من '+c.recipient+' — '+fn(bal)+' ر.ق';}
-        if(typeof showSaveInd==='function')showSaveInd('✅ تم تحديث سند القبض '+existingRec.num+' بقيمة '+fn(bal)+' ر.ق');
+        existingRec.being='استرداد عهدة '+c.num+' — '+c.recipient;
+        if(typeof showSaveInd==='function')showSaveInd('تم تحديث سند القبض '+existingRec.num+' بقيمة '+fn(bal)+' ر.ق');
       }else{
-        SEQ.rec++;var rNum=seqStr('rec',SEQ.rec);
-        var recBeing=action==='receipt_close'
-          ?'إغلاق نهائي — صفر رصيد عهدة '+c.num+' — '+c.recipient
-          :'استرداد عهدة '+c.num+' — '+c.recipient;
-        var rec={id:gid(),num:rNum,date:today,from:c.recipient,prog:c.prog,amount:bal,
-          being:recBeing,method:'نقداً',type:'prog',
-          ref:c.num,custodyRef:c.num,custodyRecipient:c.recipient,
+        var dupCheck=RECEIPTS.find(function(x){return x.custodyRef===c.num&&x.type==='custody_return';});
+        if(dupCheck){alert('يوجد سند قبض استرجاع مرتبط بهذه العهدة.');return;}
+        if(!SEQ.rec)SEQ.rec=0;SEQ.rec++;
+        var rNum=seqStr('rec',SEQ.rec);
+        var recProg=c.prog&&c.prog.startsWith('prog:')?c.prog.slice(5):c.prog;
+        var rec={id:gid(),num:rNum,date:today,from:c.recipient,prog:recProg,amount:bal,
+          being:'استرداد عهدة '+c.num+' — '+c.recipient,
+          method:'نقداً',type:'custody_return',
+          ref:c.num,custodyRef:c.num,custodyId:c.id,
+          status:'posted',isReturnNotIncome:true,
           by:CU?CU.name:'',ts:new Date().toISOString()};
         RECEIPTS.push(rec);
-        SEQ.e++;ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date:today,type:'in',prog:c.prog,
-          cat:(IN_CATS||[])[0]||'إيرادات',
-          desc:recBeing+' — '+fn(bal)+' ر.ق',
-          amount:bal,method:'نقداً',payer:c.recipient,ref:rNum,status:'done',
-          by:CU?CU.name:'',src:'custody-return',ts:new Date().toISOString()});
-        c.returnReceiptNum=rNum;
-        if(action==='receipt_close'){c.balanceZeroed=true;c.returnedAmount=bal;c.closedWithReceipt=rNum;}
-        if(typeof showSaveInd==='function')showSaveInd('✅ سند قبض '+rNum+' بقيمة '+fn(bal)+' ر.ق');
-        // طباعة سند القبض تلقائياً مع أيقونة PDF
+        c.returnReceiptNum=rNum;c.returnReceiptId=rec.id;c.returnedAmount=bal;
+        if(action==='receipt_close'){c.balanceZeroed=true;c.effectiveBalance=0;c.closedWithReceipt=rNum;}
+        if(typeof showSaveInd==='function')showSaveInd('تم إنشاء سند القبض '+rNum+' بقيمة '+fn(bal)+' ر.ق');
         setTimeout(function(){
           if(typeof printReceiptDoc==='function'){
-            if(confirm('✅ تم إنشاء سند القبض '+rNum+'\nالمبلغ المسترد: '+fn(bal)+' ر.ق\n\nهل تريد طباعة / حفظ سند القبض الآن؟')){
-              printReceiptDoc(rec);
-            }
+            if(confirm('تم إنشاء سند القبض '+rNum+'\n'+fn(bal)+' ر.ق\n\nهل تريد الطباعة؟')){printReceiptDoc(rec);}
           }
         },400);
       }
     }else{
-      // keep in dhimma — don't close custody. If a previous return receipt existed (editing back to "keep"), remove it to avoid a stale receipt.
-      if(wasAlreadySettled&&c.returnReceiptNum){
+      if(c.returnReceiptNum){
         RECEIPTS=(RECEIPTS||[]).filter(function(x){return x.num!==c.returnReceiptNum;});
-        ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.src==='custody-return'&&e.ref===c.num);});
-        c.returnReceiptNum=null;
+        c.returnReceiptNum=null;c.returnReceiptId=null;c.returnedAmount=0;
       }
       c.status='open';
+      _lastKnownTotal=null;_lastHash=null;
       if(typeof cloudSave==='function')cloudSave(true);
-      closeOv('ov-settle-smart');
-      renderCustodyClearance();
-      alert('✅ تم حفظ الفواتير — المبلغ المتبقي '+fn(bal)+' ر.ق لا يزال في الذمة');
+      closeOv('ov-settle-smart');renderCustodyClearance();
+      alert('تم حفظ الفواتير — المبلغ المتبقي '+fn(bal)+' ر.ق لا يزال في الذمة');
       return;
     }
-  }else if(wasAlreadySettled&&c.returnReceiptNum){
-    // كان هناك مبلغ مرتجع سابقاً وأصبح الآن صفراً بعد التعديل: نحذف سند القبض الزائد
+  }else if(bal===0&&c.returnReceiptNum){
     RECEIPTS=(RECEIPTS||[]).filter(function(x){return x.num!==c.returnReceiptNum;});
-    ENTRIES=(ENTRIES||[]).filter(function(e){return !(e.src==='custody-return'&&e.ref===c.num);});
-    c.returnReceiptNum=null;
+    c.returnReceiptNum=null;c.returnReceiptId=null;c.returnedAmount=0;
   }
-  // Mark settled
-  SEQ.st++;var stNum=seqStr('st',SEQ.st);
+  if(!SEQ.st)SEQ.st=0;SEQ.st++;
+  var stNum=seqStr('st',SEQ.st);
   c.status='settled';c.settleDate=today;c.invoiceTotal=invTotal;c.settleNum=stNum;
+  c.returnedAmount=(bal>0)?bal:0;
   var _fAction=(document.querySelector('input[name="settle-action"]:checked')||{}).value;
-  c.returnedAmount=(bal>0&&(_fAction==='return'||_fAction==='receipt_close'))?bal:0;
   if(_fAction==='receipt_close'){c.balanceZeroed=true;c.effectiveBalance=0;}
-  // Mark linked voucher
   if(window._settleVoucherId){
     var lv=VOUCHERS.find(function(x){return x.id===window._settleVoucherId;});
     if(lv){lv.status='settled';lv.settleDate=today;}
@@ -4509,14 +4506,17 @@ function finalizeSettleSmart(){
   }
   var lv2=(VOUCHERS||[]).find(function(v){return v.num===c.voucherRef;});
   if(lv2){lv2.status='settled';lv2.settleDate=today;}
-  if(typeof log==='function')log('تصفية عهدة',c.recipient+' — '+c.num+' — '+fn(invTotal)+' ر.ق',c.num);
-  closeOv('ov-settle-smart');
+  if(typeof log==='function')log('تصفية عهدة',c.recipient+' — '+c.num,c.num);
+  _lastKnownTotal=null;_lastHash=null;
   if(typeof cloudSave==='function')cloudSave(true);
-  renderCustodyClearance();renderCustody();renderLedger();renderRevenues();
+  closeOv('ov-settle-smart');
+  renderCustodyClearance();
+  if(typeof renderCustody==='function')renderCustody();
+  if(typeof renderLedger==='function')renderLedger();
+  if(typeof renderRevenues==='function')renderRevenues();
   if(typeof renderDashboard==='function'&&document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
-  if(typeof showSaveInd==='function')showSaveInd('✅ تمت تصفية العهدة '+c.num+' بنجاح');
+  if(typeof showSaveInd==='function')showSaveInd('تمت تصفية العهدة '+c.num+' بنجاح');
 }
-
 function doLogin(){
   const u=document.getElementById('lu').value.trim();
   const p=document.getElementById('lp').value;
@@ -4690,6 +4690,7 @@ function openOv(id){
     var rmr=document.getElementById('rec-mode-real');if(rmr)rmr.checked=true;
   }
   if(id==='ov-custody'&&!editCustodyId){
+    if(typeof initCuExpTypeDatalist==='function')setTimeout(initCuExpTypeDatalist,50);
     document.getElementById('cu-date').value=td();
     ['cu-name','cu-phone','cu-note','cu-return-date'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
     if(typeof cuItems!=='undefined')cuItems=[];
@@ -4746,12 +4747,17 @@ function closeOv(id){
 
 function refreshCurrentPage(){
   const id=window._curPage||'dashboard';
-  goPage(id);
-  if(typeof showSaveInd==='function')showSaveInd('🔄 تم تحديث البيانات');
-  else{
-    const btn=document.getElementById('btn-refresh-top');
-    if(btn){const old=btn.textContent;btn.textContent='✅ تم التحديث';setTimeout(()=>{btn.textContent=old;},1200);}
+  // إعادة تحميل البيانات من Firebase ثم عرض الصفحة
+  if(typeof refreshAll==='function') refreshAll();
+  setTimeout(function(){goPage(id);},100);
+  const btn=document.getElementById('btn-refresh-top');
+  if(btn){
+    const old=btn.textContent||btn.innerHTML;
+    btn.style.background='#059669';btn.style.color='#fff';
+    btn.textContent='✅ تم التحديث';
+    setTimeout(function(){btn.style.background='';btn.style.color='';btn.textContent=old;},1500);
   }
+  if(typeof showSaveInd==='function') showSaveInd('🔄 تم تحديث البيانات');
 }
 
 function fillAllSelects(){
@@ -4767,6 +4773,8 @@ function fillAllSelects(){
   fillAssetOutSelect();
   const aic=document.getElementById('adm-in-cats');if(aic)aic.value=IN_CATS.join('\n');
   const aoc=document.getElementById('adm-out-cats');if(aoc)aoc.value=OUT_CATS.join('\n');
+  fillVendorSelect('vou-vendor-sel');
+  fillVendorSelect('cu-name-vendor');
 }
 function fillCats(t){const el=document.getElementById('e-cat');if(!el)return;el.innerHTML=(t==='in'?IN_CATS:OUT_CATS).map(c=>`<option>${c}</option>`).join('');}
 function fillAssetCatSelects(){
@@ -4895,6 +4903,17 @@ function renderLedger(){
     if(a.date!==b.date)return a.date<b.date?-1:1;
     return (a.ts||'').localeCompare(b.ts||'');
   });
+  // تطبيق البحث بالنص (رقم القيد أو البيان أو الاسم)
+  var ldQ=(document.getElementById('ld-q')||{}).value||'';
+  if(ldQ.trim()){
+    var lq=ldQ.trim().toLowerCase();
+    movements=movements.filter(function(m){
+      return (m.num||'').toLowerCase().includes(lq)
+        ||(m.desc||'').toLowerCase().includes(lq)
+        ||(m.by||'').toLowerCase().includes(lq)
+        ||(m.moveType||'').toLowerCase().includes(lq);
+    });
+  }
 
   // Calculate running balance
   var totalD=0,totalC=0;
@@ -5017,9 +5036,9 @@ function submitEntry(){
   else{SEQ.e++;const s=seqStr('e',SEQ.e);const attachUrl=(eType==='out'&&document.getElementById('e-direct-attach'))?document.getElementById('e-direct-attach').value.trim():'';ENTRIES.push({id:gid(),seq:s,date,type:eType,prog,cat,desc,amount,method:document.getElementById('e-method').value,payer:document.getElementById('e-payer').value.trim(),ref:document.getElementById('e-ref').value.trim(),note:document.getElementById('e-note').value.trim(),status:document.getElementById('e-status').value,attachUrl,by:CU?CU.name:'',src:'manual',ts:new Date().toISOString()});log('إضافة قيد',desc+' — '+fn(amount),s);}
   closeOv('ov-entry');renderLedger();renderRevenues();renderExpenses();if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
 }
-function renderRevenues(){const q=document.getElementById('rv-q').value.toLowerCase(),prog=document.getElementById('rv-prog').value,from=document.getElementById('rv-from').value,to=document.getElementById('rv-to').value;const rows=ENTRIES.filter(e=>e.type==='in'&&canSee(e.prog)&&(!prog||e.prog===prog)&&(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||e.desc.toLowerCase().includes(q))).sort((a,b)=>b.id-a.id);const pg=PAGES.rv||1,slice=rows.slice((pg-1)*PER,pg*PER);document.getElementById('rv-body').innerHTML=slice.length?slice.map(e=>`<tr><td><span class="idt">${e.seq}</span></td><td>${fd(e.date)}</td><td><span class="badge b-prog">${gpn(e.prog)}</span></td><td><span class="badge b-cat">${e.cat}</span></td><td>${e.desc}</td><td class="ai">+${fn(e.amount)}</td><td>${e.payer||'—'}</td><td>${e.method}</td><td>${stBadge(e.status)}</td><td><button class="abn ab-e" onclick="showDetail(${e.id})">👁️</button><button class="abn" onclick="toggleHideRecord('entry',${e.id})" style="background:${e.hiddenFromReports?'#d5f5e3;color:#0a7c4e':'#f3f4f6;color:#666'};font-size:11px" title="${e.hiddenFromReports?'إظهار':'إخفاء من التقارير'}">${e.hiddenFromReports?'👁️':'🙈'}</button><button class="abn ab-p" onclick="printReceiptForEntry(${e.id})" style="margin-right:3px">📥</button></td></tr>`).join(''):'<tr><td colspan="10" class="nd">لا توجد إيرادات</td></tr>';buildPag('rv',rows.length,pg);}
+function renderRevenues(){const q=document.getElementById('rv-q').value.toLowerCase(),prog=document.getElementById('rv-prog').value,from=document.getElementById('rv-from').value,to=document.getElementById('rv-to').value;const rows=ENTRIES.filter(e=>e.type==='in'&&canSee(e.prog)&&(!prog||e.prog===prog)&&(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||((e.seq||'').toLowerCase().includes(q)||(e.desc||'').toLowerCase().includes(q)||(e.payer||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(gpn(e.prog)||'').toLowerCase().includes(q)||(String(e.amount||'')).includes(q)))).sort((a,b)=>b.id-a.id);const pg=PAGES.rv||1,slice=rows.slice((pg-1)*PER,pg*PER);document.getElementById('rv-body').innerHTML=slice.length?slice.map(e=>`<tr><td><span class="idt">${e.seq}</span></td><td>${fd(e.date)}</td><td><span class="badge b-prog">${gpn(e.prog)}</span></td><td><span class="badge b-cat">${e.cat}</span></td><td>${e.desc}</td><td class="ai">+${fn(e.amount)}</td><td>${e.payer||'—'}</td><td>${e.method}</td><td>${stBadge(e.status)}</td><td><button class="abn ab-e" onclick="showDetail(${e.id})">👁️</button><button class="abn" onclick="toggleHideRecord('entry',${e.id})" style="background:${e.hiddenFromReports?'#d5f5e3;color:#0a7c4e':'#f3f4f6;color:#666'};font-size:11px" title="${e.hiddenFromReports?'إظهار':'إخفاء من التقارير'}">${e.hiddenFromReports?'👁️':'🙈'}</button><button class="abn ab-p" onclick="printReceiptForEntry(${e.id})" style="margin-right:3px">📥</button></td></tr>`).join(''):'<tr><td colspan="10" class="nd">لا توجد إيرادات</td></tr>';buildPag('rv',rows.length,pg);}
 function clrRv(){['rv-q','rv-from','rv-to'].forEach(id=>document.getElementById(id).value='');document.getElementById('rv-prog').value='';renderRevenues();}
-function renderExpenses(){const q=document.getElementById('ex-q').value.toLowerCase(),prog=document.getElementById('ex-prog').value,from=document.getElementById('ex-from').value,to=document.getElementById('ex-to').value;const rows=ENTRIES.filter(e=>!e.hiddenFromReports&&e.type==='out'&&!isCustodyExcludedEntry(e)&&canSee(e.prog)&&(!prog||e.prog===prog)&&(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||e.desc.toLowerCase().includes(q))).sort((a,b)=>b.id-a.id);const pg=PAGES.ex||1,slice=rows.slice((pg-1)*PER,pg*PER);document.getElementById('ex-body').innerHTML=slice.length?slice.map(e=>`<tr><td><span class="idt">${e.seq}</span></td><td>${fd(e.date)}</td><td><span class="badge b-prog">${gpn(e.prog)}</span></td><td><span class="badge b-cat">${e.cat}</span></td><td>${e.desc}</td><td class="ao">-${fn(e.amount)}</td><td>${e.payer||'—'}</td><td>${e.method}</td><td>${stBadge(e.status)}</td><td><button class="abn ab-e" onclick="showDetail(${e.id})">👁️</button><button class="abn ab-g" onclick="printVoucherForEntry(${e.id})" style="margin-right:3px">🧾</button>${e.src==='voucher'?`<button class="abn ab-p" onclick="goToClearance('${e.ref}')" style="margin-right:3px" title="عرض في صفحة التصفية">🔗 تصفية</button>`:''}${e.attachUrl?`<button class="abn ab-p" onclick="window.open('${e.attachUrl}','_blank')" style="margin-right:3px" title="عرض المرفق">📎</button>`:''}</td></tr>`).join(''):'<tr><td colspan="10" class="nd">لا توجد مصروفات</td></tr>';buildPag('ex',rows.length,pg);}
+function renderExpenses(){const q=document.getElementById('ex-q').value.toLowerCase(),prog=document.getElementById('ex-prog').value,from=document.getElementById('ex-from').value,to=document.getElementById('ex-to').value;const rows=ENTRIES.filter(e=>!e.hiddenFromReports&&e.type==='out'&&!isCustodyExcludedEntry(e)&&canSee(e.prog)&&(!prog||e.prog===prog)&&(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||((e.seq||'').toLowerCase().includes(q)||(e.desc||'').toLowerCase().includes(q)||(e.payer||'').toLowerCase().includes(q)||(e.ref||'').toLowerCase().includes(q)||(gpn(e.prog)||'').toLowerCase().includes(q)||(String(e.amount||'')).includes(q)))).sort((a,b)=>b.id-a.id);const pg=PAGES.ex||1,slice=rows.slice((pg-1)*PER,pg*PER);document.getElementById('ex-body').innerHTML=slice.length?slice.map(e=>`<tr><td><span class="idt">${e.seq}</span></td><td>${fd(e.date)}</td><td><span class="badge b-prog">${gpn(e.prog)}</span></td><td><span class="badge b-cat">${e.cat}</span></td><td>${e.desc}</td><td class="ao">-${fn(e.amount)}</td><td>${e.payer||'—'}</td><td>${e.method}</td><td>${stBadge(e.status)}</td><td><button class="abn ab-e" onclick="showDetail(${e.id})">👁️</button><button class="abn ab-g" onclick="printVoucherForEntry(${e.id})" style="margin-right:3px">🧾</button>${e.src==='voucher'?`<button class="abn ab-p" onclick="goToClearance('${e.ref}')" style="margin-right:3px" title="عرض في صفحة التصفية">🔗 تصفية</button>`:''}${e.attachUrl?`<button class="abn ab-p" onclick="window.open('${e.attachUrl}','_blank')" style="margin-right:3px" title="عرض المرفق">📎</button>`:''}</td></tr>`).join(''):'<tr><td colspan="10" class="nd">لا توجد مصروفات</td></tr>';buildPag('ex',rows.length,pg);}
 function goToClearance(num){goPage('custody-clearance');setTimeout(function(){var f=document.getElementById('ccq-num');if(f){f.value=num;var s=document.getElementById('ccq-stat');if(s)s.value='all';renderCustodyClearance();}},80);}
 
 // ═══════════════ البحث الشامل (Global Search) ═══════════════
@@ -5322,7 +5341,8 @@ function printVoucher(v){
 function saveVoucher(){
   const rec=document.getElementById('vou-rec').value.trim();
   const vouEt=document.getElementById('vou-entity-type')?.value||'person';
-  const prog=document.getElementById('vou-prog-s').value;
+  const _progRaw=document.getElementById('vou-prog-s').value;
+  const prog=_progRaw&&_progRaw.startsWith('prog:')?_progRaw.slice(5):_progRaw;
   const amount=parseFloat(document.getElementById('vou-amt').value);
   const date=document.getElementById('vou-date').value;
   const being=document.getElementById('vou-being').value.trim();
@@ -5425,7 +5445,7 @@ function printVoucherForEntry(id){const e=ENTRIES.find(x=>x.id===id);if(!e)retur
 // RECEIPT
 let editReceiptId=null;
 function saveReceipt(){
-  const frm=document.getElementById('rec-frm').value.trim(),prog=document.getElementById('rec-prog-s').value,amount=parseFloat(document.getElementById('rec-amt').value),date=document.getElementById('rec-date').value,being=document.getElementById('rec-being').value.trim();
+  const frm=document.getElementById('rec-frm').value.trim(),prog=(function(){var _r=document.getElementById('rec-prog-s').value;return _r&&_r.startsWith('prog:')?_r.slice(5):_r;})(),amount=parseFloat(document.getElementById('rec-amt').value),date=document.getElementById('rec-date').value,being=document.getElementById('rec-being').value.trim();
   if(!frm||!prog||isNaN(amount)||amount<=0||!date||!being){alert('يرجى ملء جميع الحقول');return;}
   const method=document.getElementById('rec-mth').value,ref=document.getElementById('rec-ref').value.trim();
   const isDocOnly=document.getElementById('rec-mode-doc')&&document.getElementById('rec-mode-doc').checked;
@@ -5610,7 +5630,7 @@ function delReward(id){
 }
 let rwStF='all';
 function renderRewards(){
-  const prog=document.getElementById('rw-filter-prog').value;let rows=REWARDS.filter(r=>canSee(r.prog)&&(!prog||r.prog===prog)&&(rwStF==='all'||r.status===rwStF)).sort((a,b)=>b.id-a.id);
+  const prog=document.getElementById('rw-filter-prog').value;let rows=REWARDS.filter(r=>canSee(r.prog)&&(!prog||r.prog===prog)&&(rwStF==='all'||r.status===rwStF)&&(!q||((r.num||'').toLowerCase().includes(q)||(r.name||'').toLowerCase().includes(q)||(r.reason||'').toLowerCase().includes(q)||(String(r.amount||'')).includes(q)))).sort((a,b)=>b.id-a.id);
   document.getElementById('rw-pend').textContent=REWARDS.filter(r=>canSee(r.prog)&&r.status==='pending').length;
   document.getElementById('rw-done').textContent=REWARDS.filter(r=>canSee(r.prog)&&r.status==='done').length;
   document.getElementById('rw-body').innerHTML=rows.length?rows.map(r=>`<tr><td><span class="idt">${r.num}</span></td><td style="font-weight:600">${r.name}</td><td><span class="badge b-prog">${gpn(r.prog)}</span></td><td class="ao">${fn(r.amount)}</td><td>${r.reason}</td><td>${fd(r.date)}</td><td>${r.status==='done'?'<span class="badge b-done">✅ تم الصرف</span>':'<span class="badge b-pend">⏳ معلق — انتظار التأكيد</span>'}</td><td>${r.status==='pending'?`<button class="abn ab-g" onclick="markRwDone(${r.id})">✅ تأكيد</button>`:''}<button class="abn ab-p" onclick="printRewardDoc(REWARDS.find(x=>x.id===${r.id}))" style="margin-right:3px" title="طباعة">📝</button><button class="abn" onclick="printRewardDoc(REWARDS.find(x=>x.id===${r.id}))" style="background:#fee2e2;color:#b91c1c;margin-right:3px" title="حفظ PDF">⬇️ PDF</button>${isAdm()?`<button class="abn ab-d" onclick="delReward(${r.id})" style="margin-right:3px" title="حذف وإعادة الرصيد">🗑️</button>`:''}</td></tr>`).join(''):'<tr><td colspan="8" class="nd">لا توجد مكافآت</td></tr>';
@@ -6406,8 +6426,9 @@ function genReport(){
   var today=new Date().toISOString().slice(0,10);
   var logo=ORG.logo;
   var flt=function(arr){return (arr||[]).filter(function(x){if(x.hiddenFromReports)return false;
-    if(!canSee(x.prog))return false;
-    if(prog&&x.prog!==prog)return false;
+    var _xprog=x.prog&&x.prog.startsWith('prog:')?x.prog.slice(5):x.prog;
+    if(!canSee(_xprog))return false;
+    if(prog&&_xprog!==prog)return false;
     if(from&&x.date<from)return false;
     if(to&&x.date>to)return false;
     return true;
@@ -6844,7 +6865,7 @@ function genReport(){
           body += '<tr style="background:'+(i%2?'#faf5ff':'#fff')+'">';
           body += '<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:monospace;color:#7c3aed;font-weight:700">'+r.num+'</td>';
           body += '<td '+TD+' style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;direction:ltr">'+fmtDate(r.date)+'</td>';
-          body += '<td '+TD+' style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt">'+(r.recipient||r.payer||'—')+'</td>';
+          body += '<td '+TD+' style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt">'+(r.name||r.recipient||r.payer||'—')+'</td>';
           body += '<td '+TD+' style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt">'+(r.being||r.desc||r.reason||'—')+'</td>';
           body += '<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;direction:ltr;text-align:left;font-weight:700;color:#7c3aed;font-family:monospace">'+fn(r.amount)+'</td></tr>';
         });
@@ -6866,7 +6887,7 @@ function genReport(){
     var cuTotal=0,cuInvTotal=0,cuBalTotal=0,cuReturnedTotal=0;
     body='<div class="sec-title">📦 تقرير شامل — حركات صرف العهد الكلية ('+cuAll.length+')</div>';
     body+='<table class="rpt-tbl"><thead><tr>'
-      +'<th>رقم العهدة</th><th>رقم السند</th><th>المستلم</th><th>البرنامج</th>'
+      +'<th>رقم العهدة</th><th>رقم السند</th><th>المستلم</th><th>البرنامج</th><th>البيان</th>'
       +'<th style="direction:ltr;text-align:left">المبلغ</th><th style="direction:ltr;text-align:left">الفواتير</th>'
       +'<th style="direction:ltr;text-align:left">المتبقي</th><th style="direction:ltr;text-align:left">المُرتجع</th>'
       +'<th>سند القبض</th><th>الحالة</th><th>تاريخ الصرف</th><th>تاريخ التصفية</th>'
@@ -6885,6 +6906,7 @@ function genReport(){
       body+='<tr style="background:'+bg+'"><td style="font-family:monospace;font-weight:700;color:#0f2d5e">'+c.num+'</td>'
         +'<td style="font-family:monospace;font-size:9.5pt;color:#555">'+(c.voucherRef||'—')+'</td>'
         +'<td>'+c.recipient+'</td><td style="font-size:10pt">'+gpn(c.prog)+'</td>'
+        +'<td style="font-size:10px;color:#374151;max-width:120px">'+(c.cashDesc||c.note||'—')+'</td>'
         +'<td style="direction:ltr;text-align:left;font-weight:700">'+fn(totalA)+'</td>'
         +'<td style="direction:ltr;text-align:left;color:#0a7c4e">'+fn(invT)+'</td>'
         +'<td style="direction:ltr;text-align:left;color:'+(bal>0?'#c0392b':'#0a7c4e')+';font-weight:700">'+fn(bal)+'</td>'
@@ -7180,7 +7202,7 @@ function genReport(){
         body+='<tr style="background:'+TR(i)+'">';
         body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:monospace;color:#7c3aed;font-weight:700">'+r.num+'</td>';
         body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial;white-space:nowrap">'+fmtDate(r.date)+'</td>';
-        body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial;font-weight:700">'+(r.recipient||r.payer||'—')+'</td>';
+        body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial;font-weight:700">'+(r.name||r.recipient||r.payer||'—')+'</td>';
         body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:11pt;font-family:Tajawal,Arial">'+(r.being||r.desc||r.reason||'—')+'</td>';
         body+='<td style="padding:3px 8px;border:1px solid #e2e8f0;font-size:16pt;direction:ltr;text-align:left;font-weight:900;color:#7c3aed;font-family:monospace">'+fn(r.amount)+'</td></tr>';
       });
@@ -7721,6 +7743,11 @@ function applyState(s){
       else{USERS.push({u:d.u,p:d.p,name:d.name,role:d.role,progs:d.progs});}
     });
   }else{USERS=DEFAULT_USERS.slice();}}
+  if(s.VENDORS!==undefined)VENDORS=toArr(s.VENDORS);
+  // تنظيف قيود الاسترجاع القديمة - منع احتسابها كإيراد
+  (ENTRIES||[]).forEach(function(e){
+    if(e.src==='custody-return')e.isReturnNotIncome=true;
+  });
   if(s.IN_CATS)IN_CATS=toArr(s.IN_CATS);
   if(s.OUT_CATS)OUT_CATS=toArr(s.OUT_CATS);
   if(s.ASSET_CATS)ASSET_CATS=toArr(s.ASSET_CATS);
@@ -7728,8 +7755,13 @@ function applyState(s){
   if(s.FUNDS&&toArr(s.FUNDS).length>0){FUNDS=toArr(s.FUNDS);}
   if(s.FUNDS_LOCKED)FUNDS_LOCKED=Object.assign({},s.FUNDS_LOCKED);
   if(s.EXPENSE_TYPES&&toArr(s.EXPENSE_TYPES).length>0){EXPENSE_TYPES=toArr(s.EXPENSE_TYPES);}
-  ENTRIES=toArr(s.ENTRIES);VOUCHERS=toArr(s.VOUCHERS);RECEIPTS=toArr(s.RECEIPTS);
-  CUSTODIES=toArr(s.CUSTODIES);REWARDS=toArr(s.REWARDS);ASSET_INV=toArr(s.ASSET_INV);
+  // تنظيف بادئة "prog:" من جميع السجلات
+  function _cp(arr){return (arr||[]).map(function(x){
+    if(x&&x.prog&&typeof x.prog==='string'&&x.prog.startsWith('prog:'))x.prog=x.prog.slice(5);
+    return x;
+  });}
+  ENTRIES=_cp(toArr(s.ENTRIES));VOUCHERS=_cp(toArr(s.VOUCHERS));RECEIPTS=_cp(toArr(s.RECEIPTS));
+  CUSTODIES=_cp(toArr(s.CUSTODIES));REWARDS=_cp(toArr(s.REWARDS));ASSET_INV=toArr(s.ASSET_INV);
   ASSET_OUTS=toArr(s.ASSET_OUTS);TASKS=toArr(s.TASKS);AUDIT=toArr(s.AUDIT);
   BANK_TX=toArr(s.BANK_TX);
   if(s.BANK_SETTINGS)BANK_SETTINGS=Object.assign({fee:10,openingBalance:0,openingDate:''},s.BANK_SETTINGS);
@@ -7758,7 +7790,7 @@ function cloudSave(force){
   // ونحاول الآن حفظ حالة شبه فارغة (غالباً بسبب تحميل غير مكتمل أو انقطاع اتصال) — نمنع الكتابة فوراً
   // بدل استبدال بيانات المستخدم الحقيقية بمصفوفات فارغة.
   const newTotal=stateTotal(s);
-  if(_lastKnownTotal!==null&&_lastKnownTotal>=5&&newTotal<Math.max(1,_lastKnownTotal*0.005)){
+  if(!force&&_lastKnownTotal!==null&&_lastKnownTotal>=5&&newTotal<Math.max(1,_lastKnownTotal*0.005)){
     console.error('⛔ تم إيقاف الحفظ التلقائي وقائياً: البيانات المحلية الحالية ('+newTotal+' سجل) أقل بكثير من آخر نسخة موثوقة من السحابة ('+_lastKnownTotal+' سجل). على الأرجح لم يكتمل تحميل البيانات أو انقطع الاتصال. أعد تحميل الصفحة قبل إجراء أي تعديل.');
     setSync('offline');
     const el=document.getElementById('syncBadge');
@@ -7812,6 +7844,8 @@ function cloudSave(force){
       _lastHash=JSON.stringify(collectState()); _applying=false;
       _lastKnownTotal=stateTotal(_fbData);
       refreshAll(); setSync('synced');
+      // تحديث محرر البيانات إن كان مفتوحاً
+      if(window._curPage==='data-editor'&&typeof deInit==='function') setTimeout(deInit,100);
       if(typeof fillVendorSelect==='function'){
         fillVendorSelect('vou-vendor-sel');
         fillVendorSelect('cu-name-vendor');
@@ -8138,13 +8172,25 @@ function deTab(t){
 // ── الترشيح ──
 function _deFilter(arr,q,pf){
   return (arr||[]).filter(function(x){
-    if(pf&&x.prog!==pf)return false;
+    var xprog=x.prog&&x.prog.startsWith('prog:')?x.prog.slice(5):x.prog;
+    if(pf&&xprog!==pf)return false;
     if(!q)return true;
-    return JSON.stringify(x).toLowerCase().indexOf(q)>-1;
+    var qq=q.toLowerCase();
+    if((x.num||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.seq||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.date||'').indexOf(qq)>-1)return true;
+    if((x.desc||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.being||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.recipient||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.name||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.from||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.payer||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((x.ref||'').toLowerCase().indexOf(qq)>-1)return true;
+    if((gpn(xprog)||'').toLowerCase().indexOf(qq)>-1)return true;
+    if(String(x.amount||'').indexOf(qq)>-1)return true;
+    return JSON.stringify(x).toLowerCase().indexOf(qq)>-1;
   });
 }
-
-// ── العرض الرئيسي ──
 function deRender(){
   var q=((document.getElementById('de-q')||{}).value||'').trim().toLowerCase();
   var pf=(document.getElementById('de-prog')||{}).value||'';
@@ -8153,7 +8199,15 @@ function deRender(){
   if(!wrap)return;
   var r;
   if(_deActive==='entries')    r=_deXLEntries(q,pf);
-  else if(_deActive==='vouchers')   r=_deXLVouchers(q,pf);
+  else if(_deActive==='vouchers'){
+    // إذا VOUCHERS فارغة ولكن Firebase محمّل، انتظر
+    if(!(VOUCHERS||[]).length && typeof refreshAll==='function'){
+      wrap.innerHTML='<div style="text-align:center;padding:30px;font-family:Tajawal,Arial;color:#64748b">⏳ جارٍ تحميل البيانات... <button onclick="deRender()" style="padding:5px 12px;background:#0f2d5e;color:#fff;border:none;border-radius:6px;cursor:pointer;margin-right:10px;font-family:Tajawal,Arial">🔄 إعادة المحاولة</button></div>';
+      if(cnt)cnt.textContent='السجلات: 0';
+      return;
+    }
+    r=_deXLVouchers(q,pf);
+  }
   else if(_deActive==='custodies')  r=_deXLCustodies(q,pf);
   else if(_deActive==='receipts')   r=_deXLReceipts(q,pf);
   else if(_deActive==='rewards')    r=_deXLRewards(q,pf);
@@ -8337,10 +8391,25 @@ function deDelete(type,id,label){
   }
 
   if(typeof log==='function') log('حذف نهائي — '+type,label,id);
+  // حفظ مباشر لـ Firebase بدون safety guard أو setTimeout
   _lastKnownTotal=null;
-  if(typeof cloudSave==='function')cloudSave(true);
+  _lastHash=null;
+  if(typeof ROOT!=='undefined'&&ROOT&&typeof _fbReady!=='undefined'&&_fbReady){
+    var _delState=collectState();
+    ROOT.set(Object.assign({},_delState,{_ts:Date.now()}))
+      .then(function(){
+        _lastKnownTotal=stateTotal(_delState);
+        setSync('synced');
+        if(typeof showSaveInd==='function')showSaveInd('🗑️ تم الحذف من Firebase');
+      })
+      .catch(function(e){
+        console.error('Delete save error:',e);
+        setSync('offline');
+        alert('خطأ في الحفظ: '+e.message);
+      });
+  }
   if(typeof renderDashboard==='function')renderDashboard();
-  if(typeof showSaveInd==='function')showSaveInd('🗑️ تم الحذف من Firebase');
+  if(typeof showSaveInd==='function')showSaveInd('🗑️ جارٍ الحذف...');
   deRender();
 }
 
@@ -8362,6 +8431,7 @@ function _deTotal(label,amount){
 
 // ══ القيود ══
 function _deXLEntries(q,pf){
+  (ENTRIES||[]).forEach(function(e){if(e.prog&&e.prog.startsWith('prog:'))e.prog=e.prog.slice(5);});
   var rows=_deFilter(ENTRIES,q,pf);
   var total=rows.reduce(function(s,e){return s+(e.type==='in'?e.amount:-e.amount);},0);
   var html='<table class="de-xl-tbl"><thead><tr>'
@@ -8392,6 +8462,8 @@ function _deXLEntries(q,pf){
 
 // ══ سندات الصرف ══
 function _deXLVouchers(q,pf){
+  // تنظيف prog: prefix مباشرة من VOUCHERS
+  (VOUCHERS||[]).forEach(function(v){if(v.prog&&v.prog.startsWith('prog:'))v.prog=v.prog.slice(5);});
   var cuVR=new Set((CUSTODIES||[]).filter(function(c){return c.voucherRef;}).map(function(c){return c.voucherRef;}));
   var rows=_deFilter(VOUCHERS,q,pf);
   var total=rows.reduce(function(s,v){return s+v.amount;},0);
@@ -8423,6 +8495,7 @@ function _deXLVouchers(q,pf){
 
 // ══ العهد ══
 function _deXLCustodies(q,pf){
+  (CUSTODIES||[]).forEach(function(c){if(c.prog&&c.prog.startsWith('prog:'))c.prog=c.prog.slice(5);});
   var rows=_deFilter(CUSTODIES,q,pf);
   if(!rows.length)return _Empty(q?'لا نتائج للبحث عن "'+q+'"':'العهد فارغة');
   var stL={open:'🟢مفتوح',partial:'🟡جزئي',settled:'⚫مغلق',archived:'📦مؤرشف'};
@@ -8466,6 +8539,7 @@ function _deXLCustodies(q,pf){
 }
 
 function _deXLReceipts(q,pf){
+  (RECEIPTS||[]).forEach(function(r){if(r.prog&&r.prog.startsWith('prog:'))r.prog=r.prog.slice(5);});
   var rows=_deFilter(RECEIPTS,q,pf);
   var total=rows.reduce(function(s,r){return s+r.amount;},0);
   var html='<table class="de-xl-tbl"><thead><tr>'
@@ -8496,7 +8570,7 @@ function _deXLRewards(q,pf){
   var rows=_deFilter(REWARDS,q,pf);
   var total=rows.reduce(function(s,r){return s+r.amount;},0);
   var html='<table class="de-xl-tbl"><thead><tr>'
-    +'<th style="width:40px">#</th><th>الرقم</th><th>التاريخ</th><th>البرنامج</th><th>المستفيد</th><th>البيان</th><th>المبلغ</th><th style="width:90px;text-align:center">إجراءات</th>'
+    +'<th style="width:40px">#</th><th>الرقم</th><th>التاريخ</th><th>البرنامج</th><th>المستلم</th><th>البيان</th><th>المبلغ</th><th style="width:90px;text-align:center">إجراءات</th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r,i){
     var hidden=!!r.hiddenFromReports;
@@ -8874,7 +8948,8 @@ function saveCustody(){
   var g=function(id){var el=document.getElementById(id);return el?el.value.trim():'';};
   var name=g('cu-name');
   var phone=g('cu-phone');
-  var prog=g('cu-prog-s');
+  var _cuProgRaw=g('cu-prog-s');
+  var prog=_cuProgRaw&&_cuProgRaw.startsWith('prog:')?_cuProgRaw.slice(5):_cuProgRaw;
   var date=g('cu-date');
   var retDate=g('cu-return-date');
   var note=g('cu-note');
@@ -9207,8 +9282,22 @@ function vouInitExpenseTypes(){
   if(cur) sel.value = cur;
 }
 
+function updateBeingFromExpType(){
+  var typeId=(document.getElementById('vou-exp-type')||{}).value||'';
+  var subVal=(document.getElementById('vou-exp-sub')||{}).value||''
+    ||(document.getElementById('vou-exp-sub-input')||{}).value||'';
+  var being=document.getElementById('vou-being');
+  if(!being||being.value)return; // لا تستبدل ما أدخله المستخدم
+  var t=(EXPENSE_TYPES||[]).find(function(x){return x.id===typeId;});
+  if(t){
+    var parts=[t.name];
+    if(subVal) parts.push(subVal);
+    being.placeholder=parts.join(' — ')+' ...';
+  }
+}
 function vouExpTypeChange(){
   var typeId = (document.getElementById('vou-exp-type')||{}).value||'';
+  if(!typeId){var inp=document.getElementById('vou-exp-type-input');if(inp&&inp.value){var _f=(EXPENSE_TYPES||[]).find(function(t){return t.icon+' '+t.name===inp.value||t.name===inp.value;});if(_f)typeId=_f.id;}}
   var subWrap = document.getElementById('vou-exp-sub-wrap');
   var subSel  = document.getElementById('vou-exp-sub');
   if(!subSel) return;
@@ -11028,6 +11117,70 @@ document.addEventListener('click',function(e){
     goPage(ni.dataset.gp);
   }
 },true);
+
+function resetVoucherForm(){
+  ['vou-rec','vou-amt','vou-being','vou-ref'].forEach(function(id){
+    var e=document.getElementById(id);if(e)e.value='';
+  });
+  var dt=document.getElementById('vou-date');if(dt)dt.value=td();
+  var mth=document.getElementById('vou-mth');if(mth)mth.value='نقداً';
+  var et=document.getElementById('vou-exp-type');if(et)et.value='';
+  var eti=document.getElementById('vou-exp-type-input');if(eti)eti.value='';
+  var esw=document.getElementById('vou-exp-sub-wrap');if(esw)esw.style.display='none';
+  var vs=document.getElementById('vou-vendor-sel');if(vs)vs.value='';
+  var vi=document.getElementById('vou-vendor-info');if(vi)vi.style.display='none';
+  var wb=document.getElementById('vou-budget-warn');if(wb)wb.classList.remove('show');
+  var ve=document.getElementById('vou-err');if(ve)ve.classList.remove('show');
+  var bw=document.getElementById('vou-prog-bal-wrap');if(bw)bw.style.display='none';
+  window._selectedVendorId=null;window._selectedVendorName=null;
+  if(typeof vouSetType==='function') vouSetType('direct');
+  if(typeof showSaveInd==='function') showSaveInd('🔄 تم تفريغ النموذج');
+}
+function cuExpTypeFromInput(){
+  var inp=document.getElementById('cu-exp-type-input');
+  var hidden=document.getElementById('cu-exp-type');
+  var subWrap=document.getElementById('cu-exp-sub-wrap');
+  var subDl=document.getElementById('cu-exp-sub-list');
+  var val=inp?inp.value:'';
+  var found=(EXPENSE_TYPES||[]).find(function(t){return t.name===val||t.icon+' '+t.name===val;});
+  if(hidden)hidden.value=found?found.id:'';
+  if(found&&subDl){
+    subDl.innerHTML=(found.subs||[]).map(function(s){return'<option value="'+s+'">';}).join('');
+    if(subWrap)subWrap.style.display='';
+  } else {
+    if(subWrap)subWrap.style.display='none';
+  }
+  // auto-fill cu-cash-desc
+  var desc=document.getElementById('cu-cash-desc');
+  if(desc&&!desc.value&&found){
+    var subVal=(document.getElementById('cu-exp-sub-input')||{}).value||'';
+    desc.placeholder=found.name+(subVal?' — '+subVal:'')+'...';
+  }
+}
+function initCuExpTypeDatalist(){
+  var dl=document.getElementById('cu-exp-type-list');
+  if(!dl)return;
+  dl.innerHTML=(EXPENSE_TYPES||[]).filter(function(t){return !t.disabled;}).map(function(t){
+    return'<option value="'+t.icon+' '+t.name+'">';
+  }).join('');
+}
+// ══ حذف مباشر بالرقم ══
+function deleteByNum(){
+  if(!isAdm()){alert('للمدير فقط');return;}
+  var num=prompt('رقم السند للحذف (مثال: EH-0088):','');
+  if(!num||!num.trim())return;
+  num=num.trim().toUpperCase();
+  var found=null,foundType='';
+  var v=(VOUCHERS||[]).find(function(x){return (x.num||'').toUpperCase()===num;});
+  if(v){found=v;foundType='vouchers';}
+  if(!found){var c=(CUSTODIES||[]).find(function(x){return (x.num||'').toUpperCase()===num;});if(c){found=c;foundType='custodies';}}
+  if(!found){var r2=(RECEIPTS||[]).find(function(x){return (x.num||'').toUpperCase()===num;});if(r2){found=r2;foundType='receipts';}}
+  if(!found){var e=(ENTRIES||[]).find(function(x){return (x.seq||x.num||'').toUpperCase()===num;});if(e){found=e;foundType='entries';}}
+  if(!found){alert('لم يوجد سجل: '+num);return;}
+  var lbl=num+' — '+(found.recipient||found.being||found.desc||found.name||'');
+  if(!confirm('حذف نهائي: '+lbl+'?'))return;
+  deDelete(foundType,found.id,lbl);
+}
 </script>
 </body>
 </html>
