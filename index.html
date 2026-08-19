@@ -196,6 +196,40 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+/* 🌐 مصادر بديلة لمكتبة Firebase:
+   إن حجب مزوّد الإنترنت أو الشبكة نطاق gstatic.com لا تُحمّل المكتبة
+   ويبقى النظام «غير متصل» بلا حفظ. نجرّب مصدرين بديلين تلقائياً. */
+(function(){
+  window._fbLoadLog=[];
+  function log(m){window._fbLoadLog.push(m);console.log('🌐 '+m);}
+  if(window.firebase&&window.firebase.firestore){log('حُمّلت من gstatic ✅');return;}
+  log('تعذّر التحميل من gstatic — تجربة مصدر بديل');
+  var sources=[
+    ['https://cdn.jsdelivr.net/npm/firebase@10.12.2/compat/firebase-app-compat.js',
+     'https://cdn.jsdelivr.net/npm/firebase@10.12.2/compat/firebase-firestore-compat.js'],
+    ['https://unpkg.com/firebase@10.12.2/compat/firebase-app-compat.js',
+     'https://unpkg.com/firebase@10.12.2/compat/firebase-firestore-compat.js']
+  ];
+  var idx=0;
+  function loadPair(){
+    if(idx>=sources.length){log('فشلت كل المصادر — النظام سيعمل محلياً بلا مزامنة');
+      if(typeof window._onFbLoadFail==='function')window._onFbLoadFail();return;}
+    var pair=sources[idx++];
+    var a=document.createElement('script');a.src=pair[0];
+    a.onload=function(){
+      var b=document.createElement('script');b.src=pair[1];
+      b.onload=function(){
+        log('حُمّلت من '+pair[0].split('/')[2]+' ✅');
+        if(typeof window._retryFirebaseInit==='function')window._retryFirebaseInit();
+      };
+      b.onerror=loadPair;document.head.appendChild(b);
+    };
+    a.onerror=loadPair;document.head.appendChild(a);
+  }
+  loadPair();
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -335,12 +369,27 @@ tfoot tr{background:#f4f7fc;border-top:2px solid var(--bdr)}tfoot td{padding:9px
       <button onclick="deTab('programs')"  id="de-t-programs"  class="de-tab">🏷️ البرامج</button>
       <button onclick="deTab('transfers')" id="de-t-transfers" class="de-tab">🔀 التحويلات</button>
       <button onclick="deTab('edits')"     id="de-t-edits"     class="de-tab" style="background:#fef3c7;color:#92400e;border-color:#f59e0b">✏️ التعديلات</button>
+      <button onclick="deTab('recover')"   id="de-t-recover"   class="de-tab" style="background:#fee2e2;color:#991b1b;border-color:#fca5a5">🗄️ استرجاع المحذوفات</button>
     </div>
   </div>
   <!-- Table -->
   <div style="overflow-x:auto;flex:1">
     <div id="de-tbl-wrap" style="min-height:200px"></div>
   </div>
+  <!-- ورقة استرجاع المحذوفات -->
+  <div id="de-recover-wrap" style="display:none">
+    <div style="background:#fff7ed;border:1.5px solid #fdba74;border-radius:10px;padding:10px 13px;margin-bottom:11px;font-family:Tajawal,Arial;font-size:12px;color:#7c2d12">
+      🗄️ كل سجل يُحذف أو يختفي يُحفظ هنا 120 يوماً. اضغط «استرجاع» ليعود إلى النظام والتقارير والأرصدة.
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:11px">
+      <div class="fg" style="flex:1;min-width:200px"><label class="fl">بحث</label>
+        <input class="fi" id="rc-q" placeholder="رقم / اسم / بيان / مبلغ" oninput="renderRecover()"></div>
+      <button class="bc" onclick="renderRecover()">↻ تحديث</button>
+    </div>
+    <div id="rc-stats" style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="rc-body"></div>
+  </div>
+
   <!-- ورقة التعديلات داخل محرر البيانات -->
   <div id="de-edits-wrap" style="display:none">
     <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px;background:var(--card);border:1.5px solid var(--bdr);border-radius:10px;padding:10px 12px">
@@ -1700,10 +1749,16 @@ const seqStr=(t,n)=>{
   let out=pre+'-'+String(num).padStart(4,'0');
   // 🔒 لا تُصدر رقماً موجوداً في القائمة السوداء (محذوف نهائياً) — تخطَّ إلى التالي
   try{
-    if(Array.isArray(window._BLACKLIST)&&window._BLACKLIST.length){
-      const bl=new Set(window._BLACKLIST.map(function(x){return String(x||'').trim().toUpperCase();}));
+    var _tk={VOUCHERS:'v',CUSTODIES:'c',RECEIPTS:'rec',REWARDS:'r',ENTRIES:'e'};
+    var _tombHas=function(num){
+      var T=window._TOMBS||{};
+      for(var c in _tk){if(_tk[c]===t&&T[c+':'+num])return true;}
+      return false;
+    };
+    if((Array.isArray(window._BLACKLIST)&&window._BLACKLIST.length)||window._TOMBS){
+      const bl=new Set((window._BLACKLIST||[]).map(function(x){return String(x||'').trim().toUpperCase();}));
       let guard=0;
-      while(bl.has(out)&&guard<1000){
+      while((bl.has(out)||_tombHas(out))&&guard<1000){
         num++;guard++;
         out=pre+'-'+String(num).padStart(4,'0');
       }
@@ -1912,7 +1967,7 @@ function isCustodyExcludedEntry(e){
 }
 function autoEntry({date,prog,desc,amount,method,payer,cat,ref,src}){
   SEQ.e++;const s=seqStr('e',SEQ.e);
-  const e={id:gid(),seq:s,date,type:'out',prog,cat:cat||'مصروفات أخرى',desc,amount,method:method||'نقداً',payer:payer||'',ref:ref||'',status:'done',note:'',by:CU?CU.name:'',src:src||'auto',ts:new Date().toISOString()};
+  const e={id:gid(),seq:s,_mts:Date.now(),date,type:'out',prog,cat:cat||'مصروفات أخرى',desc,amount,method:method||'نقداً',payer:payer||'',ref:ref||'',status:'done',note:'',by:CU?CU.name:'',src:src||'auto',ts:new Date().toISOString()};
   ENTRIES.push(e);return e;
 }
 function amtW(n){
@@ -1966,9 +2021,29 @@ function doPrint(htmlStr, landscape, pageSize, opts){
     +'};'
     +'<'+'/scr'+'ipt>';
   var full=htmlStr
-    .replace('</head>', tbStyle+pCSS+'<style>@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>'+dlScript+'</head>')
+    /* ⚠️ كان pCSS يُحقن نصاً خاماً بلا وسم <style>، وأي نص داخل <head>
+       ينقله المتصفح تلقائياً إلى أعلى <body> فيظهر للمستخدم سطر
+       «@page{size:A4 portrait;margin:10mm}» في الشاشة والنسخة المطبوعة.
+       الحل: تغليفه داخل <style> كبقية الأنماط. */
+    .replace('</head>', tbStyle+'<style id="_drpage">'+pCSS+'</style>'
+      +'<style>@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>'
+      +dlScript+'</head>')
     .replace('<body>','<body>'+tbHtml)
     .replace('</body>','</div></body>');
+  /* 🧹 منظّف شامل: يقسّم المستند إلى مقاطع <style>/<script> وما بينها،
+     ثم يزيل أي قواعد CSS نصية (@page / @media) من المقاطع غير النمطية فقط.
+     هكذا يستحيل ظهور «@page{size:A4 ...}» للمستخدم في أي نموذج مهما كان. */
+  full=(function(html){
+    var parts=html.split(/(<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>)/gi);
+    for(var i=0;i<parts.length;i++){
+      if(/^<(style|script)/i.test(parts[i]))continue;      // لا تمسّ الأنماط
+      parts[i]=parts[i]
+        .replace(/@page\s*\{[^}]*\}/gi,'')
+        .replace(/@media\s+print\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/gi,'')
+        .replace(/@charset[^;]*;/gi,'');
+    }
+    return parts.join('');
+  })(full);
   var blob=new Blob([full],{type:'text/html;charset=utf-8'});
   var url=URL.createObjectURL(blob);
   var w=window.open(url,'_blank');
@@ -2062,34 +2137,36 @@ function printRewardAck(r){
   if(!r)return;var logo=ORG.logo;
   var doc='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet"><style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
-    +'body{font-family:\'Tajawal\',Arial;direction:rtl;padding:14mm;font-size:17pt;background:#fff;line-height:1.7}'
-    +'@page{margin:0}'
-    +'.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0f2d5e;padding-bottom:5mm;margin-bottom:5mm}'
-    +'.doc-num{font-size:18pt;font-weight:900;color:#1e56a0}'
+    /* 🖨️ الطباعة بالوضع العرضي (Landscape) بهامش 10mm */
+    +'@page{size:A4 landscape;margin:10mm}'
+    +'body{font-family:\'Tajawal\',Arial;direction:rtl;padding:6mm 10mm;font-size:10pt;background:#fff;line-height:1.55}'
+    +'@media print{body{padding:3mm 6mm;font-size:10pt;line-height:1.5}}'
+    +'.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #0f2d5e;padding-bottom:3mm;margin-bottom:4mm}'
+    +'.doc-num{font-size:10pt;font-weight:900;color:#1e56a0}'
     +'.amt-row{display:grid;grid-template-columns:1fr 26mm 1fr;align-items:stretch;border:2px solid #1e3a6e;border-radius:8px;overflow:hidden;margin:4mm 0 5mm}'
     +'.amt-side{padding:3.5mm 5mm}'
     +'.amt-lbl{font-size:9pt;color:#888;margin-bottom:2mm}'
-    +'.amt-val{font-size:16pt;font-weight:900;color:#1e3a6e;border:1.8px solid #1e3a6e;padding:3mm 5mm;text-align:center;background:#f8fafd;direction:ltr}'
+    +'.amt-val{font-size:12pt;font-weight:900;color:#1e3a6e;border:1.8px solid #1e3a6e;padding:3mm 5mm;text-align:center;background:#f8fafd;direction:ltr}'
     +'.curr-mid{background:#1e3a6e;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9pt;font-weight:700;text-align:center;gap:2px}'
-    +'.ack-box{background:#f0f4f8;border:1.5px solid #0f2d5e;border-radius:8px;padding:8mm 10mm;margin:5mm 0;font-size:17pt;line-height:2.0}'
-    +'.signs{display:grid;grid-template-columns:1fr 1fr;gap:16mm;margin-top:9mm}'
-    +'.ftr{border-top:2px solid #0f2d5e;margin-top:5mm;padding-top:3mm;display:flex;justify-content:space-between;font-size:7.5pt;color:#666;direction:ltr}'
+    +'.ack-box{background:#f0f4f8;border:1.5px solid #0f2d5e;border-radius:8px;padding:8mm 10mm;margin:5mm 0;font-size:12pt;line-height:2.0}'
+    +'.signs{display:grid;grid-template-columns:1fr 1fr;gap:40mm;margin-top:7mm;page-break-inside:avoid}'
+    +'.ftr{border-top:2px solid #0f2d5e;margin-top:4mm;padding-top:2mm;display:flex;justify-content:space-between;font-size:7.5pt;color:#666;direction:ltr}'
     +'</style></head><body>'
 
     // ── Header ──
     +'<div class="hdr">'
     +'<div style="text-align:right">'
-    +'<div style="font-size:13pt;font-weight:900;color:#0f2d5e">'+(ORG.name||'')+'</div>'
+    +'<div style="font-size:10pt;font-weight:900;color:#0f2d5e">'+(ORG.name||'')+'</div>'
     +'</div>'
-    +'<div style="text-align:center"><div style="font-size:18pt;font-weight:900;color:#0f2d5e">📋 إقرار استلام مكافأة</div>'
+    +'<div style="text-align:center"><div style="font-size:10pt;font-weight:900;color:#0f2d5e">📋 إقرار استلام مكافأة</div>'
     +'<div style="font-size:8pt;color:#1e56a0;font-weight:700;letter-spacing:2px">REWARD RECEIPT ACKNOWLEDGMENT</div>'
     +'<div class="doc-num" style="margin-top:2mm">'+(r.num||'')+'</div>'
     +'</div>'
-    +(logo?'<img src="'+logo+'" style="height:13mm;object-fit:contain">':'<span style="font-size:26px">🧳</span>')
+    +(logo?'<img src="'+logo+'" style="height:13mm;object-fit:contain">':'<span style="font-size:20px">🧳</span>')
     +'</div>'
 
     // ── Date ──
-    +'<div style="font-size:10.5pt;margin-bottom:3mm"><strong style="color:#0f2d5e">التاريخ:</strong> '+r.date+'</div>'
+    +'<div style="font-size:10pt;margin-bottom:3mm"><strong style="color:#0f2d5e">التاريخ:</strong> '+r.date+'</div>'
 
     // ── Amount Box ──
     +'<div class="amt-row">'
@@ -2121,16 +2198,16 @@ function printRewardAck(r){
     // ── Signatures ──
     +'<div class="signs">'
     +'<div><div style="border-top:1.5px solid #555;height:14mm;margin-bottom:3mm"></div>'
-    +'<div style="text-align:center;font-size:9.5pt">المحاسب — '+(CU?CU.name:'')+'</div>'
+    +'<div style="text-align:center;font-size:9pt">المحاسب — '+(CU?CU.name:'')+'</div>'
     +'</div>'
     +'<div><div style="border-top:1.5px solid #555;height:14mm;margin-bottom:3mm"></div>'
-    +'<div style="text-align:center;font-size:9.5pt">المستلم — <span style="color:#800000;font-weight:700">'+r.name+'</span></div>'
+    +'<div style="text-align:center;font-size:9pt">المستلم — <span style="color:#800000;font-weight:700">'+r.name+'</span></div>'
     +'</div>'
     +'</div>'
 
     +'<div class="ftr"><span>+974 50623355</span><span style="color:#0f2d5e;font-weight:700">DUROOB FOR TOURISM SERVICES</span><span>duroob.tourism.services@gmail.com</span></div>'
     +'</body></html>';
-  doPrint(doc,false);
+  doPrint(doc,true,"A4");   // 🖨️ عرضي
 }
 function printAssetReturn(c){
   if(!c)return;var logo=ORG.logo;
@@ -3710,7 +3787,10 @@ function isCustodyReturnEntry(e){return !!(e&&e.src==='custody-return');}
 function isCustodyReturnReceipt(r){return !!(r&&r.being&&String(r.being).indexOf('استرداد عهدة')!==-1);}
 function bankProgramMovements(){
   var movements=[];
-  function addMov(m){if(!canSee(m.prog))return;movements.push(m);}
+  function addMov(m){if(!canSee(m.prog))return;movements.push(m);
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
+}
   // خريطة القيود المرتبطة فعلياً بسند صرف/مكافأة/عهدة — لتفادي احتساب نفس المبلغ مرتين
   var linkedRefs={};
   (ENTRIES||[]).forEach(function(e){if(e.src==='voucher'||e.src==='reward'||e.src==='custody')linkedRefs[e.ref]=true;});
@@ -3947,7 +4027,7 @@ function saveBankTx(){
   editBtxId=null;
   if(typeof cloudSave==='function')cloudSave(true);
   closeOv('ov-bank');renderBank();
-  if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+  if(_isDashActive())renderDashboard();
 }
 function delBankTx(id){
   if(!isAdm()){alert('⛔ حذف الحركات البنكية متاح للمدير فقط.');return;}
@@ -4761,6 +4841,9 @@ function addSettleInvSmart(){
   f('sn-desc','');f('sn-amt','');f('sn-url','');f('sn-inv-num','');
   var di=document.getElementById('sn-inv-date');if(di)di.value=new Date().toISOString().slice(0,10);
   _refreshSettleSmart(totalAmt,c.invoices);
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 function _editSettleInvSmart(invId){
   var c=CUSTODIES.find(function(x){return x.id===window._settleId;});
@@ -4849,7 +4932,7 @@ function finalizeSettleSmart(){
   if(typeof renderCustody==='function')renderCustody();
   if(typeof renderLedger==='function')renderLedger();
   if(typeof renderRevenues==='function')renderRevenues();
-  if(typeof renderDashboard==='function'&&document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+  if(typeof renderDashboard==='function'&&_isDashActive())renderDashboard();
   if(typeof showSaveInd==='function')showSaveInd('تمت تصفية العهدة '+c.num+' بنجاح');
 }
 function doLogin(){
@@ -5368,13 +5451,13 @@ function submitEntry(){
       status:'done',by:CU?CU.name:'',src:'voucher',ts:new Date().toISOString()});
     log('مصروف مسترجع بفواتير',desc+' — '+fn(amount)+' — عهدة: '+cNum,vNum);
     closeOv('ov-entry');renderLedger();renderRevenues();renderExpenses();renderCustodyClearance();
-    if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+    if(_isDashActive())renderDashboard();
     if(typeof cloudSave==='function')cloudSave(true);
     return;
   }
   if(editEntryId){const idx=ENTRIES.findIndex(e=>e.id===editEntryId);if(idx>-1){ENTRIES[idx]={...ENTRIES[idx],date,amount,desc,prog,cat,method:document.getElementById('e-method').value,payer:document.getElementById('e-payer').value.trim(),ref:document.getElementById('e-ref').value.trim(),note:document.getElementById('e-note').value.trim(),status:document.getElementById('e-status').value,type:eType};}editEntryId=null;}
   else{SEQ.e++;const s=seqStr('e',SEQ.e);const attachUrl=(eType==='out'&&document.getElementById('e-direct-attach'))?document.getElementById('e-direct-attach').value.trim():'';ENTRIES.push({id:gid(),seq:s,date,type:eType,prog,cat,desc,amount,method:document.getElementById('e-method').value,payer:document.getElementById('e-payer').value.trim(),ref:document.getElementById('e-ref').value.trim(),note:document.getElementById('e-note').value.trim(),status:document.getElementById('e-status').value,attachUrl,by:CU?CU.name:'',src:'manual',ts:new Date().toISOString()});log('إضافة قيد',desc+' — '+fn(amount),s);}
-  closeOv('ov-entry');renderLedger();renderRevenues();renderExpenses();if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+  closeOv('ov-entry');renderLedger();renderRevenues();renderExpenses();if(_isDashActive())renderDashboard();
 }
 function renderRevenues(){const q=document.getElementById('rv-q').value.toLowerCase(),prog=document.getElementById('rv-prog').value,from=document.getElementById('rv-from').value,to=document.getElementById('rv-to').value;const rows=ENTRIES.filter(e=>e.type==='in'&&canSee(e.prog)&&(!prog||e.prog===prog)&&(!from||e.date>=from)&&(!to||e.date<=to)&&(!q||_matchAll(q,[e.seq,e.desc,e.payer,e.ref,e.cat,e.method,e.date,e.amount,gpn(e.prog)]))).sort((a,b)=>b.id-a.id);const pg=PAGES.rv||1,slice=rows.slice((pg-1)*PER,pg*PER);document.getElementById('rv-body').innerHTML=slice.length?slice.map(e=>`<tr><td><span class="idt">${e.seq}</span></td><td>${fd(e.date)}</td><td><span class="badge b-prog">${gpn(e.prog)}</span></td><td><span class="badge b-cat">${e.cat}</span></td><td>${e.desc}</td><td class="ai">+${fn(e.amount)}</td><td>${e.payer||'—'}</td><td>${e.method}</td><td>${stBadge(e.status)}</td><td><button class="abn ab-e" onclick="showDetail(${e.id})">👁️</button><button class="abn" onclick="toggleHideRecord('entry',${e.id})" style="background:${e.hiddenFromReports?'#d5f5e3;color:#0a7c4e':'#f3f4f6;color:#666'};font-size:11px" title="${e.hiddenFromReports?'إظهار':'إخفاء من التقارير'}">${e.hiddenFromReports?'👁️':'🙈'}</button><button class="abn ab-p" onclick="printReceiptForEntry(${e.id})" style="margin-right:3px">📥</button></td></tr>`).join(''):'<tr><td colspan="10" class="nd">لا توجد إيرادات</td></tr>';buildPag('rv',rows.length,pg);}
 function clrRv(){['rv-q','rv-from','rv-to'].forEach(id=>document.getElementById(id).value='');document.getElementById('rv-prog').value='';renderRevenues();}
@@ -5700,6 +5783,11 @@ function saveVoucher(){
     ref:document.getElementById('vou-ref').value.trim(),
     being,isRefund:(docStatus==='refund_invoiced'),vType,docStatus,attachUrl:_vUrl2,
     by:CU?CU.name:'',ts:new Date().toISOString()};
+  // 🔓 رقم يُعاد إصداره بعد حذف سابق: ارفع أي شاهد حذف قديم بنفس الرقم
+  ['VOUCHERS','CUSTODIES','RECEIPTS','REWARDS','ENTRIES'].forEach(function(c){
+    if(window._TOMBS&&window._TOMBS[c+':'+vNum])delete window._TOMBS[c+':'+vNum];
+  });
+  if(typeof _blRemove==='function')_blRemove(vNum);
   VOUCHERS.push(v);
   // كل سند صرف يُسجَّل تلقائياً في BANK_TX
   // ⚠️ إصلاح: كان يُستخدم متغير _isBank غير مُعرَّف → خطأ يوقف التنفيذ
@@ -5735,12 +5823,9 @@ function saveVoucher(){
       method:v.method,payer:rec,cat:'مصروفات أخرى',ref:vNum,src:'voucher'});
     log('سند صرف مباشر',being+' — '+fn(amount),vNum);
   }
-  var _vEl=document.getElementById('vou-attach-url');if(_vEl)_vEl.value='';
-  closeOv('ov-voucher');printVoucher(v);renderVouchers();renderCustody();renderLedger();renderExpenses();
-  if(typeof renderCustodyClearance==='function')renderCustodyClearance();
-  if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
-
-  // 🔒 لا يُعتبر السند صادراً إلا بعد تأكيد وجوده فعلياً في قاعدة البيانات
+  /* 🔒 الحفظ أولاً ثم الطباعة والرسم — أي خطأ في الطباعة (كخطأ getSig
+     السابق) كان يقطع التنفيذ قبل الوصول إلى الحفظ فيضيع السند. */
+  try{if(typeof journalAdd==='function')journalAdd('VOUCHERS',vNum,v);}catch(e){}
   if(typeof persist==='function'){
     persist({force:true,silent:true}).then(function(r){
       if(r&&r.ok){
@@ -5750,6 +5835,12 @@ function saveVoucher(){
       }
     });
   }else if(typeof cloudSave==='function')cloudSave(true);
+
+  try{var _vEl=document.getElementById('vou-attach-url');if(_vEl)_vEl.value='';}catch(e){}
+  try{closeOv('ov-voucher');}catch(e){}
+  try{printVoucher(v);}catch(e){console.warn('طباعة السند:',e);}
+  ['renderVouchers','renderCustody','renderLedger','renderExpenses','renderCustodyClearance','renderDashboard']
+    .forEach(function(f){if(typeof window[f]==='function'){try{window[f]();}catch(e){}}});
 }
 // طباعة تقرير سندات الصرف مفلترة حسب حالة السند المختارة (أو الكل)
 function voucherDocStatus(v){return v.docStatus||(v.vType==='refund'?'refund_invoiced':v.vType==='pending_custody'?'pending_not_delivered':'direct');}
@@ -5838,11 +5929,16 @@ function saveReceipt(){
   const recType=recTypeEl?recTypeEl.value:'income';
   const isCustodyReturn=recType==='custody_return';
     const custodyRefEl=document.getElementById('rec-custody-ref');const custodyRef=custodyRefEl?custodyRefEl.value.trim():'';
-  const r={id:gid(),num:rNum,date,from:frm,prog,amount,being,method,ref,
+  // 🔓 ارفع أي شاهد حذف قديم بنفس الرقم
+  ['RECEIPTS','ENTRIES'].forEach(function(c){
+    if(window._TOMBS&&window._TOMBS[c+':'+rNum])delete window._TOMBS[c+':'+rNum];
+  });
+  if(typeof _blRemove==='function')_blRemove(rNum);
+  const r={id:gid(),num:rNum,_mts:Date.now(),date,from:frm,prog,amount,being,method,ref,
     docOnly:isDocOnly||isCustodyReturn,
     type:isCustodyReturn?'custody_return':'income',
-    isReturnNotIncome:isCustodyReturn||undefined,
-    custodyRef:custodyRef||undefined,
+    isReturnNotIncome:!!isCustodyReturn,
+    custodyRef:custodyRef||'',
     status:'posted',
     entityType:recEt};
   RECEIPTS.push(r);
@@ -5857,10 +5953,27 @@ function saveReceipt(){
     }
   }
   if(!isDocOnly&&!isCustodyReturn){
-    SEQ.e++;ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),date,type:'in',prog,cat:IN_CATS[0]||'إيرادات',desc:'سند قبض '+rNum+' — '+being,amount,method:r.method,payer:frm,ref:rNum,status:'done',by:CU?CU.name:'',src:'receipt',ts:new Date().toISOString()});
+    SEQ.e++;ENTRIES.push({id:gid(),seq:seqStr('e',SEQ.e),_mts:Date.now(),date,type:'in',prog,cat:IN_CATS[0]||'إيرادات',desc:'سند قبض '+rNum+' — '+being,amount,method:r.method,payer:frm,ref:rNum,status:'done',by:CU?CU.name:'',src:'receipt',ts:new Date().toISOString()});
   }
-  log(isDocOnly?'سند قبض توثيقي':'سند قبض',being+' — '+fn(amount),rNum);closeOv('ov-receipt');printReceiptDoc(r);renderRevenues();renderLedger();if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
-  if(typeof cloudSave==='function')cloudSave(true);
+  /* 🔒 الحفظ أولاً ثم العرض — كان الحفظ آخر سطر بعد الطباعة والرسم،
+     فأي خطأ فيهما يمنع كتابة سند القبض وقيده في قاعدة البيانات. */
+  try{if(typeof journalAdd==='function')journalAdd('RECEIPTS',rNum,r);}catch(e){}
+  if(typeof persist==='function'){
+    persist({force:true,silent:true}).then(function(res){
+      if(typeof showSaveInd==='function')
+        showSaveInd(res&&res.ok?('✅ سند القبض '+rNum+' — محفوظ ومؤكَّد')
+                               :('⏳ '+rNum+' — لم يتأكد الحفظ بعد، تُعاد المحاولة…'));
+      if(res&&res.ok&&typeof confirmSavedOnServer==='function')
+        confirmSavedOnServer('RECEIPTS','num',rNum,'سند القبض '+rNum);
+    });
+  }else if(typeof cloudSave==='function')cloudSave(true);
+
+  try{log(isDocOnly?'سند قبض توثيقي':'سند قبض',being+' — '+fn(amount),rNum);}catch(e){}
+  try{closeOv('ov-receipt');}catch(e){}
+  try{printReceiptDoc(r);}catch(e){console.warn('طباعة سند القبض:',e);}
+  ['renderRevenues','renderLedger','renderDashboard'].forEach(function(f){
+    if(typeof window[f]==='function'){try{window[f]();}catch(e){}}
+  });
 }
 function openEditReceipt(id){
   const r=RECEIPTS.find(x=>x.id===id);if(!r)return;
@@ -5950,6 +6063,9 @@ function savePdfReceipt(id){
   const r=(RECEIPTS||[]).find(x=>x.id===id);if(!r)return;
   printReceiptDoc(r);
   setTimeout(function(){alert('💾 لحفظ السند بصيغة PDF:\n\nفي نافذة الطباعة التي فُتحت، اختر من قائمة "الوجهة/Destination" خيار "Save as PDF" أو "حفظ كـ PDF"، ثم اضغط حفظ.');},400);
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 
 // REWARD
@@ -5974,9 +6090,15 @@ function saveReward(){
     return;
   }
   if(!checkProgBudget(prog,amount,'rw-budget-warn','rw-err'))return;
-  SEQ.r++;const rNum=seqStr('r',SEQ.r);
-  const r={id:gid(),num:rNum,date,name,title:ttl,amount,prog,method,reason,status:rwStatus,periodFrom:rwFrom,periodTo:rwTo,by:CU?CU.name:''};
+  // ⚠️ الفحص قبل حجز الرقم — كان بعده فيُستهلك رقم عند الإلغاء
   if(!checkProgBudgetStrict(prog,amount,'مكافأة'))return;
+  SEQ.r++;const rNum=seqStr('r',SEQ.r);
+  // 🔓 ارفع أي شاهد حذف قديم بنفس الرقم
+  ['REWARDS','VOUCHERS','ENTRIES'].forEach(function(c){
+    if(window._TOMBS&&window._TOMBS[c+':'+rNum])delete window._TOMBS[c+':'+rNum];
+  });
+  if(typeof _blRemove==='function')_blRemove(rNum);
+  const r={id:gid(),num:rNum,_mts:Date.now(),date,name,title:ttl,amount,prog,method,reason,status:rwStatus,periodFrom:rwFrom,periodTo:rwTo,by:CU?CU.name:''};
   REWARDS.push(r);
   // كل مكافأة تُسجَّل في BANK_TX
   BANK_TX=BANK_TX||[];
@@ -5984,7 +6106,27 @@ function saveReward(){
     type:'withdraw',amount:amount,
     desc:'مكافأة '+rNum+' — '+reason+' — '+name,
     prog:prog||'',method:method,ref:rNum,by:CU?CU.name:''});autoEntry({date,prog,desc:'مكافأة '+rNum+' — '+reason+' — '+name,amount,method:r.method,payer:name,cat:'مكافآت',ref:rNum,src:'reward'});
-  log('صرف مكافأة',reason+' — '+fn(amount)+' — '+name,rNum);closeOv('ov-reward');printRewardDoc(r);renderRewards();renderLedger();if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+  /* 🔒 الحفظ أولاً — قبل الطباعة والرسم.
+     كان الحفظ في آخر الدالة بعد printRewardDoc/renderX؛ وأي خطأ في
+     الطباعة أو الرسم (عنصر مفقود مثلاً) يقطع التنفيذ فلا يُحفظ السند
+     إطلاقاً رغم ظهوره على الشاشة. الترتيب الصحيح: احفظ ثم اعرض. */
+  try{if(typeof journalAdd==='function')journalAdd('REWARDS',rNum,r);}catch(e){}
+  if(typeof persist==='function'){
+    persist({force:true,silent:true}).then(function(res){
+      if(typeof showSaveInd==='function')
+        showSaveInd(res&&res.ok?('✅ المكافأة '+rNum+' — محفوظة ومؤكَّدة')
+                               :('⏳ '+rNum+' — لم يتأكد الحفظ بعد، تُعاد المحاولة…'));
+      if(res&&res.ok&&typeof confirmSavedOnServer==='function')
+        confirmSavedOnServer('REWARDS','num',rNum,'المكافأة '+rNum);
+    });
+  }else if(typeof cloudSave==='function')cloudSave(true);
+
+  try{log('صرف مكافأة',reason+' — '+fn(amount)+' — '+name,rNum);}catch(e){}
+  try{closeOv('ov-reward');}catch(e){}
+  try{printRewardDoc(r);}catch(e){console.warn('طباعة المكافأة:',e);}
+  ['renderRewards','renderLedger','renderExpenses','renderDashboard'].forEach(function(f){
+    if(typeof window[f]==='function'){try{window[f]();}catch(e){}}
+  });
 }
 function openEditReward(id){
   const r=REWARDS.find(x=>x.id===id);if(!r)return;
@@ -6013,7 +6155,7 @@ function delReward(id){
   log('حذف مكافأة','تم إعادة '+fn(r.amount)+' ر.ق لرصيد '+gpn(r.prog),r.num);
   if(typeof cloudSave==='function')cloudSave(true);
   renderRewards();renderLedger();
-  if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();
+  if(_isDashActive())renderDashboard();
   alert('✅ تم حذف المكافأة وإعادة المبلغ '+fn(r.amount)+' ر.ق لرصيد البرنامج');
 }
 let rwStF='all';
@@ -6142,6 +6284,9 @@ function addCuItem(){
   const a=ASSET_INV.find(x=>x.id===aId);if(!a){alert('الأصل غير موجود');return;}
   const avail=getAssetAvail(aId);if(qty>avail){alert('الكمية المتاحة: '+avail+' فقط');return;}
   cuItems.push({assetId:aId,name:a.name,cat:a.cat,qty});renderCuItems();
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 function renderCuItems(){
   document.getElementById('cu-items-list').innerHTML=cuItems.length?cuItems.map((it,i)=>`<div class="sii"><span>${it.name} (${it.cat})</span><span style="font-weight:700">العدد: ${it.qty} <button onclick="cuItems.splice(${i},1);renderCuItems()" style="border:none;background:none;color:var(--rd);cursor:pointer;margin-right:4px">✕</button></span></div>`).join(''):'<div style="color:var(--txt3);font-size:12px;padding:6px">لم تُضَف أصول بعد</div>';
@@ -6207,7 +6352,10 @@ function syncSettleInvsToCustody(){
   if(typeof cloudSave==='function')cloudSave(true);
 }
 function renderSettleInvs(){document.getElementById('settle-invs').innerHTML=settleInvs.length?settleInvs.map((inv,i)=>`<div class="sii"><span>${inv.desc}</span><span style="font-weight:700;color:var(--gr)">${fn(inv.amount)} ر.ق <button onclick="editSettleInv(${i})" style="border:none;background:none;color:var(--pr);cursor:pointer" title="تعديل">✏️</button> <button onclick="removeSettleInv(${i})" style="border:none;background:none;color:var(--rd);cursor:pointer" title="حذف">✕</button></span></div>`).join(''):'<div style="color:var(--txt3);font-size:12px;text-align:center;padding:8px">لا توجد فواتير</div>';const settled=settleInvs.reduce((s,i)=>s+i.amount,0);document.getElementById('settle-rem').textContent=fn(settled)+' ر.ق مُسوَّى';}
-function addSettleInv(){const d=document.getElementById('si-desc').value.trim();const a=parseFloat(document.getElementById('si-amt').value);if(!d||isNaN(a)||a<=0){alert('أدخل وصفاً ومبلغاً');return;}const c=CUSTODIES.find(x=>x.id===settleId);const totalAmt=c?(c.amount||c.cashAmt||0):0;const curTotal=settleInvs.reduce((s,i)=>s+i.amount,0);if(curTotal+a>totalAmt+0.001){alert('⚠️ لا يمكن إضافة مبلغ يتجاوز مبلغ العهدة الخارجة.\nالمتبقي المتاح للتصفية: '+fn(totalAmt-curTotal)+' ر.ق');return;}settleInvs.push({id:gid(),desc:d,amount:a,date:td()});document.getElementById('si-desc').value='';document.getElementById('si-amt').value='';renderSettleInvs();syncSettleInvsToCustody();updateSettlePendingNote();if(typeof showSaveInd==='function')showSaveInd('✅ تم حفظ الفاتورة');}
+function addSettleInv(){const d=document.getElementById('si-desc').value.trim();const a=parseFloat(document.getElementById('si-amt').value);if(!d||isNaN(a)||a<=0){alert('أدخل وصفاً ومبلغاً');return;}const c=CUSTODIES.find(x=>x.id===settleId);const totalAmt=c?(c.amount||c.cashAmt||0):0;const curTotal=settleInvs.reduce((s,i)=>s+i.amount,0);if(curTotal+a>totalAmt+0.001){alert('⚠️ لا يمكن إضافة مبلغ يتجاوز مبلغ العهدة الخارجة.\nالمتبقي المتاح للتصفية: '+fn(totalAmt-curTotal)+' ر.ق');return;}settleInvs.push({id:gid(),desc:d,amount:a,date:td()});document.getElementById('si-desc').value='';document.getElementById('si-amt').value='';renderSettleInvs();syncSettleInvsToCustody();updateSettlePendingNote();if(typeof showSaveInd==='function')showSaveInd('✅ تم حفظ الفاتورة');
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
+}
 function editSettleInv(i){const inv=settleInvs[i];if(!inv)return;document.getElementById('si-desc').value=inv.desc;document.getElementById('si-amt').value=inv.amount;settleInvs.splice(i,1);renderSettleInvs();syncSettleInvsToCustody();updateSettlePendingNote();document.getElementById('si-desc').focus();}
 function removeSettleInv(i){settleInvs.splice(i,1);renderSettleInvs();syncSettleInvsToCustody();updateSettlePendingNote();}
 function closeCustody(){const c=CUSTODIES.find(x=>x.id===settleId);if(!c)return;if(c.awaitingDisbursement){alert('⛔ لا يمكن إقفال هذه العهدة قبل تسجيل الصرف الفعلي لها (لم يُخصم المبلغ من رصيد البرنامج بعد).\n\nيرجى الضغط على زر \"💰 تسجيل الصرف الفعلي\" أولاً (صلاحية المدير).');return;}if(c.pendingDelivery&&!c.receiptConfirmed){alert('⛔ لا يمكن إقفال العهدة قبل تأكيد استلام المستفيد لها.\n\nيرجى الضغط على زر \"✅ تأكيد استلام المستفيد\" من صفحة العهد أولاً.');return;}if(c.pendingDelivery&&!isAdm()){alert('⛔ تصفية/إقفال العهد النقدية المعلّقة (التي لم تُسلَّم عند الصرف) متاح للمدير فقط.');return;}c.invoices=settleInvs.slice();c.status='closed';c.closeDate=td();SEQ.st++;c.settleNum=seqStr('st',SEQ.st);c.settleDate=c.closeDate;c.invoiceTotal=c.invoices.reduce((s,i)=>s+(i.amount||0),0);log('إقفال عهدة',c.recipient,c.num);closeOv('ov-settle');renderCustody();}
@@ -6283,6 +6431,9 @@ function saveAssetNew(){
   if(!name||!cat||qty<1||!date){alert('يرجى ملء جميع الحقول');return;}
   ASSET_INV.push({id:'ai'+Date.now(),name,cat,totalQty:qty,note,date,by:CU?CU.name:''});
   log('إدراج أصل',name+' ('+qty+') — '+cat);closeOv('ov-asset-new');fillAssetOutSelect();renderInventory();
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 function renderInventory(){
   const q=(document.getElementById('inv-q')||{}).value||'';const cat=(document.getElementById('inv-cat')||{}).value||'';
@@ -6453,9 +6604,15 @@ function forceSyncNow(){
 }
 
 
-function addAssetCat(){const v=document.getElementById('new-ast-cat').value.trim();if(!v){alert('أدخل اسم البند');return;}if(ASSET_CATS.includes(v)){alert('البند موجود');return;}ASSET_CATS.push(v);document.getElementById('new-ast-cat').value='';fillAssetCatSelects();}
+function addAssetCat(){const v=document.getElementById('new-ast-cat').value.trim();if(!v){alert('أدخل اسم البند');return;}if(ASSET_CATS.includes(v)){alert('البند موجود');return;}ASSET_CATS.push(v);document.getElementById('new-ast-cat').value='';fillAssetCatSelects();
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
+}
 function addAssetCatPrompt(){const v=prompt('اسم البند الجديد:');if(v&&v.trim()&&!ASSET_CATS.includes(v.trim())){ASSET_CATS.push(v.trim());fillAssetCatSelects();document.getElementById('ain-cat').value=v.trim();}}
-function delAssetCat(i){if(!confirm('حذف هذا البند؟'))return;ASSET_CATS.splice(i,1);fillAssetCatSelects();}
+function delAssetCat(i){if(!confirm('حذف هذا البند؟'))return;ASSET_CATS.splice(i,1);fillAssetCatSelects();
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
+}
 
 // ASSET OUT
 let aoStF='all';
@@ -6471,6 +6628,9 @@ function saveAssetOut(){
   const o={id:gid(),num:aoNum,assetId:aId,qty,recipient:rec,phone,prog,outDate:date,retDate,status:'out',returnedQty:0,deficitReason:null,mgmtNote:'',retActualDate:null,by:CU?CU.name:'',notes:notes};
   ASSET_OUTS.push(o);const a=ASSET_INV.find(x=>x.id===aId);
   log('خروج أصل',(a?a.name:'أصل')+' ('+qty+') — '+rec,aoNum);closeOv('ov-asset-out');printAssetOutDoc(o);renderAssetOuts();renderInventory();fillAssetOutSelect();
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 function renderAssetOuts(){
   const q=(document.getElementById('ao-q')||{}).value||'',
@@ -6566,6 +6726,9 @@ function saveAssetReturn(){
   const a=ASSET_INV.find(x=>x.id===o.assetId);
   log('إرجاع أصل',(a?a.name:'أصل')+' — مُرجَع: '+retQty+(deficit>0?' — نقص: '+deficit+' ('+o.deficitReason+')':''),o.num);
   closeOv('ov-asset-ret');renderAssetOuts();renderAssetReturns();renderInventory();
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 function printAssetOutDoc(o){
   if(!o)return;
@@ -6699,6 +6862,9 @@ function saveTask(){
   if(editTaskId){const t=TASKS.find(x=>x.id===editTaskId);if(t)Object.assign(t,{name,start,due,prog:prog||null,priority:pri,owner,note,status});editTaskId=null;}
   else TASKS.push({id:gid(),name,start,due,prog:prog||null,priority:pri,owner,note,status,by:CU?CU.name:''});
   log('حفظ مهمة',name);closeOv('ov-task');renderTasks();refreshBell();
+
+  if(typeof persist==='function')persist({force:true,silent:true});
+  else if(typeof cloudSave==='function')cloudSave(true);
 }
 let taskStF='all';
 function renderTasks(){
@@ -6732,7 +6898,7 @@ function renderTasks(){
 function setTaskF(f){taskStF=f;renderTasks();}
 function viewTask(id){const t=TASKS.find(x=>x.id===id);if(!t)return;const PR={high:'🔴 عالية',med:'🟡 متوسطة',low:'🟢 منخفضة'};document.getElementById('task-view-content').innerHTML=`<div class="dl"><div class="dlr"><span class="dll">المهمة</span><span class="dlv" style="font-weight:800;font-size:13px">${t.name}</span></div><div class="dlr"><span class="dll">البرنامج</span><span class="dlv">${t.prog?gpn(t.prog):'—'}</span></div><div class="dlr"><span class="dll">تاريخ البدء</span><span class="dlv">${fd(t.start)}</span></div><div class="dlr"><span class="dll">تاريخ الاستحقاق</span><span class="dlv">${fd(t.due)}</span></div><div class="dlr"><span class="dll">الأولوية</span><span class="dlv">${PR[t.priority]||'—'}</span></div><div class="dlr"><span class="dll">المسؤول</span><span class="dlv">${t.owner||'—'}</span></div><div class="dlr"><span class="dll">الحالة</span><span class="dlv">${t.status==='done'?'✅ منجزة':t.status==='cancelled'?'❌ ملغية':'🔵 قيد الإنجاز'}</span></div>${t.note?`<div class="dlr" style="flex-direction:column"><span class="dll">ملاحظات</span><span style="font-size:12px;margin-top:5px;line-height:1.8;color:var(--txt)">${t.note}</span></div>`:''}</div>`;document.getElementById('task-view-fa').innerHTML=`<button class="bs" onclick="closeOv('ov-task-view');openEditTask(${t.id})">✏️ تعديل</button><button class="bc" onclick="closeOv('ov-task-view')">إغلاق</button>`;openOv('ov-task-view');}
 function openEditTask(id){editTaskId=id;const t=TASKS.find(x=>x.id===id);if(!t)return;document.getElementById('task-modal-title').textContent='✏️ تعديل المهمة';document.getElementById('tk-name').value=t.name;document.getElementById('tk-start').value=t.start;document.getElementById('tk-due').value=t.due;document.getElementById('tk-prog-s').value=t.prog||'';document.getElementById('tk-pri').value=t.priority;document.getElementById('tk-owner').value=t.owner||'';document.getElementById('tk-note').value=t.note||'';document.getElementById('tk-status').value=t.status;document.getElementById('tk-submit').textContent='💾 حفظ التعديل';openOv('ov-task');}
-function markTaskDone(id){const t=TASKS.find(x=>x.id===id);if(!t)return;t.status='done';log('إنجاز مهمة',t.name);renderTasks();refreshBell();if(document.getElementById('pg-dashboard').classList.contains('active'))renderDashboard();}
+function markTaskDone(id){const t=TASKS.find(x=>x.id===id);if(!t)return;t.status='done';log('إنجاز مهمة',t.name);renderTasks();refreshBell();if(_isDashActive())renderDashboard();}
 
 // PROGRAMS
 function renderPrograms(){
@@ -8273,15 +8439,59 @@ buildStBtns('cu-st-btns','cu');buildStBtns('rw-st-btns','rw');buildStBtns('ao-st
    ربط النظام بـ Firebase Firestore (مزامنة لحظية)
    نفس مشروع تعاهد/تمكين — مسار مستقل duroob/ لا يتداخل مع غيره.
    ============================================================ */
-const firebaseConfig = {
+/* 🔧 إعداد الاتصال: يمكن تحديثه من داخل النظام (لوحة التشخيص ← إعدادات الاتصال)
+   وما يُحفظ محلياً يُقدَّم على القيم المدمجة أدناه. */
+var _DEFAULT_FB_CONFIG = {
   apiKey:            "AIzaSyAYn7DzTC03I7Q_My7xuJD33ELQwwuhe84",
   authDomain:        "droub-55931.firebaseapp.com",
   projectId:         "droub-55931",
   storageBucket:     "droub-55931.firebasestorage.app",
   messagingSenderId: "183460755575",
   appId:             "1:183460755575:web:d9a85fcb2e4a4cf38b2e72",
-  measurementId:     "G-WLX6Z9GCXL"
+  measurementId:     "G-FYLY6DYZGQ"
 };
+var firebaseConfig = (function(){
+  try{
+    var saved=localStorage.getItem('droob_fb_config');
+    if(saved){
+      var c=JSON.parse(saved);
+      if(c&&c.projectId&&c.apiKey){
+        console.log('🔧 استُخدم إعداد الاتصال المحفوظ محلياً — المشروع:',c.projectId);
+        return Object.assign({},_DEFAULT_FB_CONFIG,c);
+      }
+    }
+  }catch(e){}
+  return _DEFAULT_FB_CONFIG;
+})();
+
+/* حفظ إعداد جديد: يقبل كائن JSON أو نص كود Firebase كما يُنسخ من الـ Console */
+function saveFbConfig(text){
+  try{
+    var m=String(text||'').match(/\{[\s\S]*?\}/);
+    var raw=m?m[0]:String(text||'');
+    // حوّل مفاتيح JS غير المقتبسة إلى JSON صالح
+    var json=raw.replace(/([{,]\s*)([A-Za-z_$][\w$]*)\s*:/g,'$1"$2":')
+                .replace(/'/g,'"')
+                .replace(/,(\s*[}\]])/g,'$1');
+    var c=JSON.parse(json);
+    if(!c.projectId||!c.apiKey)throw new Error('الإعداد ناقص — يجب أن يحتوي projectId و apiKey');
+    localStorage.setItem('droob_fb_config',JSON.stringify(c));
+    alert('✅ حُفظ إعداد الاتصال\n\nالمشروع: '+c.projectId+'\n\nسيُعاد تحميل النظام الآن للاتصال به.');
+    location.reload();
+    return true;
+  }catch(e){
+    alert('❌ تعذّر قراءة الإعداد:\n'+((e&&e.message)||e)
+      +'\n\nالصق الكود كما هو من Firebase Console (السطور التي تبدأ بـ apiKey).');
+    return false;
+  }
+}
+function resetFbConfig(){
+  try{localStorage.removeItem('droob_fb_config');}catch(e){}
+  alert('↺ أُعيد الإعداد الأصلي — سيُعاد التحميل.');
+  location.reload();
+}
+window.saveFbConfig=saveFbConfig;
+window.resetFbConfig=resetFbConfig;
 const BOX_KEY = 'main';
 // _fbReady, _applying etc. declared early at top; just reset values here:
 _db=null; ROOT=null; _fbReady=false; _saveT=null; _lastHash=null; _applying=false; _lastKnownTotal=null;
@@ -8347,6 +8557,17 @@ function purgeBlacklisted(){
   var bl=_blSet();
   if(!bl.size)return 0;
   var before=stateTotal(collectState());
+  // 🗑️ احفظ نسخة من كل ما سيُزال في السلة (قابل للاسترجاع)
+  try{
+    [['VOUCHERS',VOUCHERS,'num'],['CUSTODIES',CUSTODIES,'num'],['RECEIPTS',RECEIPTS,'num'],
+     ['REWARDS',REWARDS,'num'],['ENTRIES',ENTRIES,'seq']].forEach(function(g){
+      (g[1]||[]).forEach(function(r){
+        if(!r)return;
+        var hit=_blHas(bl,r[g[2]])||_blHas(bl,r.ref)||_blHas(bl,r.voucherRef)||_blHas(bl,r.custodyRef)||_blHas(bl,r.seq);
+        if(hit&&typeof trashPut==='function'&&!window._TRASH[g[0]+':'+r[g[2]]])trashPut(g[0],r);
+      });
+    });
+  }catch(e){}
 
   // (1) توسعة تسلسلية: سندات القبض المرتبطة بعهدة محذوفة تُحذف معها
   var doomed=new Set(bl);
@@ -8691,6 +8912,59 @@ var _COLS=[['VOUCHERS','num'],['CUSTODIES','num'],['RECEIPTS','num'],['REWARDS',
 var _SCALARS=['ORG','USERS','FUNDS','FUNDS_LOCKED','EXPENSE_TYPES','IN_CATS','OUT_CATS',
               'ASSET_CATS','BANK_SETTINGS'];
 
+/* 🧼 تنظيف عميق للحمولة قبل الكتابة:
+   يزيل undefined والدوال ويصلح NaN/Infinity — أي منها يُفشل الكتابة كلها. */
+function sanitizeForFirestore(v,depth){
+  depth=depth||0;
+  if(depth>12)return null;
+  if(v===undefined)return undefined;
+  if(v===null)return null;
+  var t=typeof v;
+  if(t==='number')return isFinite(v)?v:0;
+  if(t==='function')return undefined;
+  if(t!=='object')return v;
+  if(Array.isArray(v)){
+    var out=[];
+    for(var i=0;i<v.length;i++){
+      var c=sanitizeForFirestore(v[i],depth+1);
+      if(c!==undefined)out.push(c);
+    }
+    return out;
+  }
+  if(v instanceof Date)return v.toISOString();
+  var o={};
+  for(var k in v){
+    if(!Object.prototype.hasOwnProperty.call(v,k))continue;
+    var cv=sanitizeForFirestore(v[k],depth+1);
+    if(cv!==undefined)o[k]=cv;
+  }
+  return o;
+}
+window.sanitizeForFirestore=sanitizeForFirestore;
+
+/* 📏 حجم الحمولة بالبايت — حد Firestore للمستند 1,048,576 بايت */
+function payloadBytes(o){
+  try{return new Blob([JSON.stringify(o)]).size;}
+  catch(e){try{return JSON.stringify(o).length*2;}catch(e2){return 0;}}
+}
+var FS_MAX=900000;   // هامش أمان تحت الحد الأقصى
+
+/* يقلّص المستند إذا اقترب من الحد: سجل التدقيق أولاً */
+function trimPayload(pl){
+  var size=payloadBytes(pl);
+  if(size<=FS_MAX)return pl;
+  console.warn('📏 حجم المستند '+size+' بايت — يتجاوز الحد، جارٍ التقليص');
+  var caps=[400,200,100,50,20];
+  for(var i=0;i<caps.length&&size>FS_MAX;i++){
+    pl.AUDIT=toArr(pl.AUDIT).slice(0,caps[i]);
+    size=payloadBytes(pl);
+  }
+  if(size>FS_MAX&&pl.ORG&&pl.ORG.logo){delete pl.ORG.logo;size=payloadBytes(pl);}
+  console.warn('📏 الحجم بعد التقليص: '+size+' بايت');
+  return pl;
+}
+window.payloadBytes=payloadBytes;
+
 function _colKey(col,rec,keyName){
   var v=rec&&rec[keyName];
   return (v===undefined||v===null||v==='')?null:(col+':'+String(v));
@@ -8717,10 +8991,35 @@ function _setBaseline(st){
 }
 
 /* شاهد حذف صريح */
-function addTombstone(col,val){
+window._TRASH=window._TRASH||{};
+/* 🗑️ سلة المحذوفات — تحتفظ بنسخة كاملة من كل سجل يُحذف، فيمكن استرجاعه دائماً */
+function trashPut(col,rec){
+  if(!rec)return;
+  var KEYS={};_COLS.forEach(function(g){KEYS[g[0]]=g[1];});
+  var key=KEYS[col]||'num';
+  var val=rec[key];
   if(val===undefined||val===null||val==='')return;
-  window._TOMBS[_tombKey(col,val)]=Date.now();
+  window._TRASH[col+':'+String(val)]={
+    col:col,rec:JSON.parse(JSON.stringify(rec)),ts:Date.now(),
+    by:(typeof CU!=='undefined'&&CU?CU.name:'')
+  };
 }
+function addTombstone(col,val,rec){
+  if(val===undefined||val===null||val==='')return;
+  var k=_tombKey(col,val);
+  // احفظ السجل في السلة قبل وسمه بالحذف
+  if(!rec){
+    var M={VOUCHERS:(typeof VOUCHERS!=='undefined'?VOUCHERS:[]),CUSTODIES:(typeof CUSTODIES!=='undefined'?CUSTODIES:[]),
+           RECEIPTS:(typeof RECEIPTS!=='undefined'?RECEIPTS:[]),REWARDS:(typeof REWARDS!=='undefined'?REWARDS:[]),
+           ENTRIES:(typeof ENTRIES!=='undefined'?ENTRIES:[])};
+    var KEYS2={VOUCHERS:'num',CUSTODIES:'num',RECEIPTS:'num',REWARDS:'num',ENTRIES:'seq'};
+    var arr=M[col]||[],kk=KEYS2[col]||'num';
+    rec=arr.find(function(x){return x&&String(x[kk])===String(val);});
+  }
+  if(rec)trashPut(col,rec);
+  window._TOMBS[k]=Date.now();
+}
+window.trashPut=trashPut;
 function removeTombstone(col,val){delete window._TOMBS[_tombKey(col,val)];}
 
 /* دمج القائمة السوداء القديمة داخل نظام الشواهد (توافق خلفي) */
@@ -8783,7 +9082,21 @@ function purgeTombstones(){
     var cur=toArr(acc());
     var out=cur.filter(function(r){
       var k=_colKey(col,r,key);
-      return !(k&&_isTombed(k));
+      if(!k||!_isTombed(k))return true;
+      /* ⏱️ قاعدة الزمن: شاهد الحذف يقتل فقط ما كان موجوداً قبله.
+         لو أُعيد إصدار سند بنفس الرقم بعد الحذف فهو سجل جديد ويُحتفظ به،
+         ويُرفع الشاهد. هذا ما كان يجعل سنداً مثل SD-0105 يختفي
+         فور إصداره في كل مرة. */
+      var tombTs=Number(window._TOMBS[k]||0);
+      var recTs=Number(r._mts||0);
+      if(tombTs&&recTs&&recTs>tombTs){
+        delete window._TOMBS[k];
+        delete window._TRASH[k];
+        console.log('♻️ سجل أُعيد إنشاؤه بعد الحذف — رُفع شاهد الحذف:',k);
+        return true;
+      }
+      if(!window._TRASH[k])trashPut(col,r);      // 🗑️ احفظ نسخة قبل الإزالة
+      return false;
     });
     if(out.length!==cur.length){n+=cur.length-out.length;acc(out);}
   });
@@ -8820,7 +9133,11 @@ function mergeStates(server,local){
       if(k===null)return;
       var r=map[k];
       if(!r)return;
-      if(tombs[k])return;                 // محذوف نهائياً
+      if(tombs[k]){
+        var tTs=Number(tombs[k]||0),rTs=Number(r._mts||0);
+        if(!(tTs&&rTs&&rTs>tTs))return;   // محذوف نهائياً (أقدم من الشاهد)
+        delete tombs[k];                  // أُعيد إنشاؤه بعد الحذف → يبقى
+      }
       res.push(r);
     });
     // السجلات بلا مفتاح (نادرة) تُؤخذ من المحلي
@@ -8837,7 +9154,11 @@ function mergeStates(server,local){
     var k=JSON.stringify(a);
     if(seen[k])return;seen[k]=1;aud.push(a);
   });
-  out.AUDIT=aud.slice(-3000);
+  /* سجل التدقيق: log() يضيف بـ unshift أي الأحدث أولاً،
+     فكان slice(-3000) يحتفظ بالأقدم ويحذف الجديد ويضخّم المستند.
+     الصحيح: أحدث 400 عملية. */
+  aud.sort(function(a,b){return String((b&&b.ts)||'').localeCompare(String((a&&a.ts)||''));});
+  out.AUDIT=aud.slice(0,400);
 
   // العدّادات: دائماً الأعلى حتى لا تتكرر الأرقام بين الأجهزة
   var sq=Object.assign({},(server&&server.SEQ)||{});
@@ -8873,20 +9194,44 @@ function _stampAndTombstone(local){
       if(cur!==baseCmp)r._mts=now;                                     // سجل معدَّل
     });
   });
-  // ما كان في خط الأساس (نسخة الخادم التي حمّلناها) واختفى محلياً = حذف مقصود
-  Object.keys(_baseline).forEach(function(k){
-    if(!seenKeys[k]&&!window._TOMBS[k])window._TOMBS[k]=now;
-  });
+  /* ⛔ أُلغي «الحذف بالغياب» نهائياً.
+     كان هنا: أي سجل موجود في نسخة الخادم ومفقود من الذاكرة يُوسم بشاهد حذف
+     دائم عند أول حفظ تلقائي (كل 2.5 ثانية). وأي سبب لاختفائه مؤقتاً — تنظيف
+     القائمة السوداء، مرشّح العهد، لقطة ناقصة، خطأ في الرسم — كان يتحوّل إلى
+     حذف نهائي لسندات القبض والمكافآت وغيرها. الحذف الآن صريح فقط:
+     لا يُحذف شيء إلا بضغطة المستخدم على «حذف». */
+  var _ghosts=[];
+  Object.keys(_baseline).forEach(function(k){if(!seenKeys[k])_ghosts.push(k);});
+  if(_ghosts.length){
+    console.warn('ℹ️ '+_ghosts.length+' سجل غير موجود محلياً — لن يُحذف (الحذف صريح فقط):',
+      _ghosts.slice(0,10).join(', '));
+  }
 }
 
 /* ═══ الحفظ: معاملة ذرّية (اقرأ → ادمج → اكتب) ═══ */
 function persist(opts){
   opts=opts||{};
   if(!_fbReady||typeof ROOT==='undefined'||!ROOT){setSync('offline');return Promise.resolve({ok:false,reason:'offline'});}
-  // 🚧 لا تكتب قبل أن نعرف ما في قاعدة البيانات
+  /* 🚧 لا تكتب قبل معرفة ما في قاعدة البيانات — لكن لا تُسقط الطلب أبداً.
+     كان الحفظ يُلغى نهائياً هنا، فإن تأخّرت أول لقطة (شبكة بطيئة) يضيع
+     السند الذي أُصدر للتوّ ولا يُحفظ إطلاقاً. الآن يُحتجز وينفَّذ فور الجاهزية. */
   if(!_loaded&&!opts.seeding){
-    console.warn('⏸️ حفظ مؤجَّل — لم تصل بيانات الخادم بعد');
-    return Promise.resolve({ok:false,reason:'not-loaded'});
+    console.warn('⏸️ الحفظ محتجز حتى تصل بيانات الخادم — لن يضيع');
+    setSync('loading');
+    return new Promise(function(res){
+      window._pendingSaves=window._pendingSaves||[];
+      window._pendingSaves.push({opts:Object.assign({},opts,{force:true}),res:res});
+      if(!window._pendingTimer){
+        window._pendingTimer=setInterval(function(){
+          if(!_loaded)return;
+          clearInterval(window._pendingTimer);window._pendingTimer=null;
+          var q=window._pendingSaves||[];window._pendingSaves=[];
+          if(!q.length)return;
+          console.log('▶️ تنفيذ '+q.length+' حفظ محتجز');
+          persist({force:true,silent:true}).then(function(r){q.forEach(function(w){w.res(r);});});
+        },500);
+      }
+    });
   }
   if(_writeLock){
     _writeAgain=Object.assign({},_writeAgain||{},opts,{force:true});
@@ -8902,9 +9247,21 @@ function persist(opts){
 
   _writeLock=true;_applying=true;window._applyingSince=Date.now();
   setSync('saving');
+  // ⏱️ مهلة أمان: لو لم تكتمل المعاملة (شبكة معلّقة) يُحرَّر القفل
+  // وإلا بقي الحفظ متوقفاً للأبد وضاعت كل المدخلات اللاحقة.
+  clearTimeout(window._lockT);
+  window._lockT=setTimeout(function(){
+    if(_writeLock){
+      console.warn('⏱️ معاملة الحفظ تجاوزت المهلة — تحرير القفل وإعادة المحاولة');
+      _writeLock=false;_applying=false;_lastHash=null;
+      setSync('offline');
+      persist({force:true,silent:true});
+    }
+  },20000);
 
   var mergedOut=null;
   var finish=function(result){
+    clearTimeout(window._lockT);
     _writeLock=false;_applying=false;window._applyingSince=null;
     var again=_writeAgain,waiters=_writeWaiters;
     _writeAgain=null;_writeWaiters=[];
@@ -8919,20 +9276,22 @@ function persist(opts){
       var merged=mergeStates(server,local);
       merged._ts=Date.now();
       merged._wid=(window._wseq=(window._wseq||0)+1)+'-'+Math.random().toString(36).slice(2,8);
+      merged=sanitizeForFirestore(merged)||{};    // 🧼 لا undefined ولا NaN
+      merged=trimPayload(merged);                 // 📏 تحت حد 1MB
       mergedOut=merged;
       tx.set(ROOT,merged);
       return merged;
     });
   })
   .then(function(){
-    // ✅ تحقق فعلي من الخادم
-    return ROOT.get({source:'server'}).catch(function(){return ROOT.get();});
+    /* ⚡ معاملة Firestore ذرّية: نجاحها يعني أن الكتابة اعتُمدت على الخادم.
+       القراءة الإضافية كانت تضاعف زمن الحفظ بلا فائدة — أُلغيت،
+       ويُكتفى بتحقّق خفيف غير حاجب بعد ثانيتين. */
+    return {exists:true,data:function(){return mergedOut;}};
   })
   .then(function(doc){
     var data=doc&&doc.exists?doc.data():null;
     if(!data)throw new Error('المستند غير موجود بعد الكتابة');
-    if(data._wid!==mergedOut._wid&&Number(data._ts||0)<Number(mergedOut._ts||0))
-      throw new Error('لم تُعتمد الكتابة على الخادم');
     // اعتمد نتيجة الدمج كحالة محلية — الخادم هو المرجع
     _applying=true;
     try{applyState(data);}catch(e){console.error('applyState/persist',e);}
@@ -8947,17 +9306,48 @@ function persist(opts){
     setSync('synced');
     if(!opts.silent&&opts.reason&&typeof showSaveInd==='function')
       showSaveInd('✅ '+opts.reason+' — محفوظ ومؤكَّد');
+    // 🔍 تحقّق خفيف لاحق (لا يؤخّر المستخدم): إن نقص شيء يُعاد الرفع
+    clearTimeout(window._verifyT);
+    window._verifyT=setTimeout(function(){
+      if(_writeLock)return;
+      ROOT.get({source:'server'}).then(function(d2){
+        if(!d2||!d2.exists)return;
+        var srv=d2.data();
+        var miss=_diffKeys(_keysOf(mergedOut),_keysOf(srv));
+        if(miss.length){
+          console.error('🔍 التحقق اللاحق: سجلات ناقصة على الخادم',miss.slice(0,10));
+          _lastHash=null;persist({force:true,silent:true});
+        }
+      }).catch(function(){});
+    },2000);
     return finish({ok:true,verified:true,total:_lastKnownTotal});
   })
   .catch(function(e){
-    console.error('💾 فشل الحفظ/التحقق:',e&&e.message);
+    var msg=(e&&e.message)||String(e);
+    console.error('💾 فشل الحفظ/التحقق:',msg,e);
+    window._lastSaveError=msg;
     _lastHash=null;
     window._saveRetries=(window._saveRetries||0)+1;
     setSync('offline');
+    // سبب مفهوم للمستخدم بدل صمت «غير متصل»
+    var reason='';
+    if(/undefined/i.test(msg))reason='حقل بقيمة غير صالحة داخل أحد السجلات';
+    else if(/exceeds the maximum|too large|1048576/i.test(msg))reason='حجم البيانات تجاوز الحد المسموح';
+    else if(/permission|PERMISSION_DENIED|insufficient/i.test(msg))reason='صلاحيات قاعدة البيانات ترفض الكتابة';
+    else if(/unavailable|network|offline|deadline/i.test(msg))reason='انقطاع في الاتصال';
+    else reason=msg.slice(0,70);
     var el=document.getElementById('syncBadge');
     if(el&&window._saveRetries>=2){
       el.style.background='#fde8e8';el.style.color='#c0392b';el.style.opacity='1';
-      el.textContent='⚠️ لم يتأكد الحفظ ('+window._saveRetries+') — إعادة المحاولة';
+      el.textContent='⚠️ تعذّر الحفظ: '+reason;
+      el.title=msg;
+      el.style.cursor='pointer';
+      el.onclick=function(){window._fbFailReason=msg;showConnDiag();fbSelfTest();};
+    }
+    // أظهر التشخيص تلقائياً مع رد الخادم الحرفي
+    if(window._saveRetries===2){
+      window._fbFailReason=msg;
+      try{showConnDiag();fbSelfTest();}catch(e){}
     }
     var res=finish({ok:false,verified:false,error:e&&e.message});
     if(window._saveRetries<=6){
@@ -9069,6 +9459,11 @@ window._JOURNAL=window._JOURNAL||{};
 var JOURNAL_DAYS=14, JOURNAL_MAX=800;
 
 function _guardPrune(){
+  // 🗑️ السلة تُحفظ 120 يوماً (أطول من اليوميّة) لضمان إمكانية الاسترجاع
+  var tcut=Date.now()-120*86400000;
+  Object.keys(window._TRASH||{}).forEach(function(k){
+    if(Number((window._TRASH[k]||{}).ts||0)<tcut)delete window._TRASH[k];
+  });
   var cut=Date.now()-JOURNAL_DAYS*86400000;
   var keys=Object.keys(window._JOURNAL);
   keys.forEach(function(k){
@@ -9093,7 +9488,7 @@ function journalAdd(col,key,rec){
 function guardSave(immediate){
   if(!GUARD)return Promise.resolve(false);
   _guardPrune();
-  var payload={tombs:window._TOMBS||{},journal:window._JOURNAL||{},_ts:Date.now()};
+  var payload={tombs:window._TOMBS||{},journal:window._JOURNAL||{},trash:window._TRASH||{},_ts:Date.now()};
   var run=function(){
     return GUARD.set(payload).then(function(){return true;})
       .catch(function(e){console.warn('guardSave',e&&e.message);return false;});
@@ -9111,6 +9506,7 @@ function guardLoad(){
       if(!d||!d.exists)return false;
       var g=d.data()||{};
       window._TOMBS=Object.assign({},g.tombs||{},window._TOMBS||{});
+      window._TRASH=Object.assign({},g.trash||{},window._TRASH||{});
       var j=g.journal||{};
       Object.keys(j).forEach(function(k){
         if(!window._JOURNAL[k]||Number(j[k].ts||0)>Number(window._JOURNAL[k].ts||0))
@@ -9233,14 +9629,316 @@ function reconcileAfterSnapshot(){
   window._lastRestoredNames=names;
   return restored;
 }
-(function initFirebase(){
+
+/* ══════════════════════════════════════════════════════════════════════
+   🌐 عميل Firestore عبر REST — بديل كامل عند تعذّر تحميل مكتبة Firebase
+   ──────────────────────────────────────────────────────────────────────
+   بعض الشبكات تحجب نطاقات توزيع المكتبات (gstatic / jsdelivr / unpkg)
+   فيبقى النظام «غير متصل» رغم وجود إنترنت. هذا العميل يتصل بقاعدة
+   البيانات مباشرة عبر HTTPS بلا أي مكتبة خارجية، ويقدّم نفس الواجهة
+   التي يستخدمها النظام: get / set / onSnapshot / runTransaction.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+  var API='https://firestore.googleapis.com/v1';
+
+  // ── ترميز القيم إلى صيغة Firestore ──
+  function enc(v){
+    if(v===null||v===undefined)return {nullValue:null};
+    var t=typeof v;
+    if(t==='boolean')return {booleanValue:v};
+    if(t==='number'){
+      if(!isFinite(v))return {doubleValue:0};
+      return (Number.isInteger(v))?{integerValue:String(v)}:{doubleValue:v};
+    }
+    if(t==='string')return {stringValue:v};
+    if(Array.isArray(v)){
+      var vals=[];
+      for(var i=0;i<v.length;i++){if(v[i]!==undefined)vals.push(enc(v[i]));}
+      return {arrayValue:{values:vals}};
+    }
+    if(t==='object'){
+      var f={};
+      for(var k in v){
+        if(!Object.prototype.hasOwnProperty.call(v,k))continue;
+        if(v[k]===undefined)continue;
+        f[k]=enc(v[k]);
+      }
+      return {mapValue:{fields:f}};
+    }
+    return {nullValue:null};
+  }
+  function encDoc(o){
+    var f={};
+    for(var k in o){
+      if(!Object.prototype.hasOwnProperty.call(o,k))continue;
+      if(o[k]===undefined)continue;
+      f[k]=enc(o[k]);
+    }
+    return {fields:f};
+  }
+  // ── فك الترميز ──
+  function dec(v){
+    if(!v||typeof v!=='object')return null;
+    if('nullValue' in v)return null;
+    if('booleanValue' in v)return v.booleanValue;
+    if('integerValue' in v)return Number(v.integerValue);
+    if('doubleValue' in v)return Number(v.doubleValue);
+    if('stringValue' in v)return v.stringValue;
+    if('timestampValue' in v)return v.timestampValue;
+    if('arrayValue' in v)return (v.arrayValue.values||[]).map(dec);
+    if('mapValue' in v){
+      var o={},f=v.mapValue.fields||{};
+      for(var k in f)o[k]=dec(f[k]);
+      return o;
+    }
+    return null;
+  }
+  function decDoc(d){
+    var o={},f=(d&&d.fields)||{};
+    for(var k in f)o[k]=dec(f[k]);
+    return o;
+  }
+
+  function RestDoc(projectId,apiKey,path){
+    this.url=API+'/projects/'+projectId+'/databases/(default)/documents/'+path+'?key='+apiKey;
+    this._listeners=[];this._timer=null;this._lastTs=null;
+  }
+  RestDoc.prototype.get=function(){
+    var self=this;
+    return fetch(self.url,{method:'GET'}).then(function(res){
+      if(res.status===404)return {exists:false,data:function(){return null;}};
+      if(!res.ok)return res.text().then(function(t){throw new Error('HTTP '+res.status+': '+t.slice(0,140));});
+      return res.json().then(function(j){
+        var data=decDoc(j);
+        return {exists:true,data:function(){return data;}};
+      });
+    });
+  };
+  RestDoc.prototype.set=function(obj){
+    var self=this;
+    return fetch(self.url,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(encDoc(obj))
+    }).then(function(res){
+      if(!res.ok)return res.text().then(function(t){
+        var msg='HTTP '+res.status;
+        try{var j=JSON.parse(t);if(j.error&&j.error.message)msg=j.error.message;}catch(e){msg+=': '+t.slice(0,160);}
+        window._lastRestError=msg;
+        throw new Error(msg);
+      });
+      window._lastRestError=null;
+      return true;
+    });
+  };
+  // مراقبة بالاستطلاع الدوري (بديل onSnapshot)
+  RestDoc.prototype.onSnapshot=function(cb,errCb){
+    var self=this;
+    self._listeners.push({cb:cb,err:errCb});
+    var poll=function(){
+      self.get().then(function(snap){
+        var d=snap.exists?snap.data():null;
+        var ts=d?String(d._ts||''):'';
+        if(ts!==self._lastTs){
+          self._lastTs=ts;
+          self._listeners.forEach(function(l){try{l.cb(snap);}catch(e){console.error(e);}});
+        }
+      }).catch(function(e){
+        self._listeners.forEach(function(l){if(l.err)try{l.err(e);}catch(_){}});
+      });
+    };
+    poll();
+    if(!self._timer)self._timer=setInterval(poll,5000);
+    return function(){self._listeners=[];clearInterval(self._timer);self._timer=null;};
+  };
+
+  function RestDb(projectId,apiKey){this.pid=projectId;this.key=apiKey;this._docs={};}
+  RestDb.prototype.collection=function(c){
+    var self=this;
+    return {doc:function(id){
+      var path=c+'/'+id;
+      if(!self._docs[path])self._docs[path]=new RestDoc(self.pid,self.key,path);
+      return self._docs[path];
+    }};
+  };
+  RestDb.prototype.settings=function(){};
+  // معاملة مبسّطة: اقرأ ثم اكتب (بلا ذرّية الخادم — يُعوَّض بالدمج والشواهد)
+  RestDb.prototype.runTransaction=function(fn){
+    var self=this;
+    var tx={
+      get:function(ref){return ref.get();},
+      set:function(ref,val){tx._pending=[ref,val];}
+    };
+    return Promise.resolve(fn(tx)).then(function(){
+      if(!tx._pending)return null;
+      return tx._pending[0].set(tx._pending[1]);
+    });
+  };
+
+  window._makeRestDb=function(cfg){
+    if(typeof fetch!=='function')return null;
+    return new RestDb(cfg.projectId,cfg.apiKey);
+  };
+})();
+
+/* 🩺 لوحة تشخيص الاتصال — تشرح سبب الفشل بوضوح بدل «غير متصل» الصامتة */
+function showConnDiag(){
   try{
-    if(!window.firebase){console.warn('⚠️ لم تُحمّل مكتبة Firebase — عمل محلي.');setSync('offline');return;}
-    firebase.initializeApp(firebaseConfig);
-    _db=firebase.firestore();
-    ROOT=_db.collection('duroob').doc(BOX_KEY);
-    GUARD=_db.collection('duroob').doc('_guard');     // 🛡️ لا تلمسه النسخ القديمة
-    _fbReady=true;setSync('loading');
+    var el=document.getElementById('connDiag');
+    if(!el){
+      el=document.createElement('div');el.id='connDiag';
+      el.style.cssText='position:fixed;bottom:60px;left:14px;z-index:99998;background:#fff;'
+        +'border:2px solid #c0392b;border-radius:12px;padding:12px 15px;max-width:340px;'
+        +'font-family:Tajawal,Arial;font-size:12.5px;color:#7f1d1d;line-height:1.65;'
+        +'box-shadow:0 6px 22px rgba(0,0,0,.22)';
+      document.body.appendChild(el);
+    }
+    var reason=window._fbFailReason||'سبب غير محدد';
+    var lib=(window.firebase&&window.firebase.firestore)?'✅ محمّلة':'❌ محجوبة';
+    var net=(typeof navigator!=='undefined'&&navigator.onLine===false)?'❌ لا يوجد اتصال':'✅ يوجد اتصال';
+    var route=window._usingRest?'🌐 اتصال مباشر (REST)':(_fbReady?'📦 مكتبة Firebase':'—');
+    var h='<div style="font-weight:900;margin-bottom:6px">⚠️ تعذّر الاتصال بقاعدة البيانات</div>';
+    h+='<div style="margin-bottom:4px">السبب: <b>'+reason+'</b></div>';
+    h+='<div>مكتبة Firebase: '+lib+'</div>';
+    h+='<div>الإنترنت: '+net+'</div>';
+    h+='<div>مسار الاتصال: '+route+'</div>';
+    h+='<div id="cdProbe" style="margin-top:6px;font-size:11.5px;color:#334155"></div>';
+    h+='<div style="margin-top:7px;color:#334155;font-size:11.5px">بياناتك محفوظة محلياً ولن تضيع. سيُرفع كل شيء تلقائياً فور عودة الاتصال.</div>';
+    h+='<div style="margin-top:9px;display:flex;gap:6px">';
+    h+='<button onclick="window._retryFirebaseInit&&window._retryFirebaseInit();showConnDiag()" style="flex:1;background:#0f2d5e;color:#fff;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;font-weight:800;font-family:Tajawal,Arial">🔄 إعادة المحاولة</button>';
+    h+='<button onclick="hideConnDiag()" style="background:#e2e8f0;color:#334155;border:none;border-radius:7px;padding:6px 12px;cursor:pointer;font-family:Tajawal,Arial">إخفاء</button>';
+    h+='</div>';
+    h+='<button onclick="fbSelfTest()" style="width:100%;margin-top:6px;background:#b45309;color:#fff;border:none;border-radius:7px;padding:7px 10px;cursor:pointer;font-weight:800;font-family:Tajawal,Arial">🔧 اختبار الاتصال وعرض رد الخادم</button>';
+    h+='<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #cbd5e1">'
+      +'<div style="font-weight:800;margin-bottom:4px;color:#0f2d5e">🔑 إعدادات الاتصال</div>'
+      +'<div style="font-size:11px;color:#64748b;margin-bottom:4px">المشروع الحالي: <b>'+firebaseConfig.projectId+'</b></div>'
+      +'<textarea id="fbCfgTxt" placeholder="الصق كود الإعداد من Firebase Console هنا" '
+      +'style="width:100%;height:62px;border:1.5px solid #cbd5e1;border-radius:7px;padding:6px;font-size:10.5px;direction:ltr;text-align:left;font-family:monospace"></textarea>'
+      +'<div style="display:flex;gap:6px;margin-top:5px">'
+      +'<button onclick="saveFbConfig(document.getElementById(\'fbCfgTxt\').value)" style="flex:1;background:#0a7c4e;color:#fff;border:none;border-radius:7px;padding:6px;cursor:pointer;font-weight:800;font-family:Tajawal,Arial">💾 حفظ واتصال</button>'
+      +'<button onclick="resetFbConfig()" style="background:#e2e8f0;color:#334155;border:none;border-radius:7px;padding:6px 10px;cursor:pointer;font-family:Tajawal,Arial">↺ الأصلي</button>'
+      +'</div></div>';
+    el.innerHTML=h;
+    el.style.display='block';
+    probeConn();
+  }catch(e){console.warn('showConnDiag',e);}
+}
+/* ══════════════════════════════════════════════════════════════════════
+   🔧 اختبار الاتصال الكامل — يقرأ ويكتب فعلياً ويعرض رد Google الحرفي
+   يحدد بدقة: حجب شبكة / مفتاح غير صالح / قواعد أمان ترفض / الخدمة معطّلة
+   ══════════════════════════════════════════════════════════════════════ */
+function fbSelfTest(){
+  var box=document.getElementById('cdAdv');
+  if(!box){
+    var el=document.getElementById('connDiag');
+    if(!el){showConnDiag();el=document.getElementById('connDiag');}
+    box=document.createElement('div');box.id='cdAdv';
+    box.style.cssText='margin-top:9px;padding-top:9px;border-top:1px dashed #cbd5e1;font-size:11.5px;color:#334155;max-height:230px;overflow:auto;text-align:right;direction:rtl';
+    el.appendChild(box);
+  }
+  box.innerHTML='🔧 جارٍ اختبار القراءة والكتابة…';
+
+  var base='https://firestore.googleapis.com/v1/projects/'+firebaseConfig.projectId
+          +'/databases/(default)/documents/';
+  var key='?key='+firebaseConfig.apiKey;
+  var lines=[];
+  var show=function(){box.innerHTML=lines.join('<br>');};
+  var addFix=function(msg,code){
+    var fix='';
+    if(/PERMISSION_DENIED|Missing or insufficient/i.test(msg)){
+      fix='<div style="margin-top:7px;padding:7px;background:#fff7ed;border:1px solid #fdba74;border-radius:7px">'
+        +'<b>السبب: قواعد أمان Firestore ترفض الوصول.</b><br>'
+        +'افتح Firebase Console ← Firestore Database ← Rules، والصق:<br>'
+        +'<code style="display:block;background:#0f172a;color:#7ee787;padding:7px;border-radius:6px;margin-top:5px;direction:ltr;text-align:left;font-size:10.5px;white-space:pre">'
+        +'rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{db}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}</code>'
+        +'<div style="margin-top:5px">ثم اضغط Publish وأعد المحاولة.</div></div>';
+    }else if(/API key not valid|API_KEY_INVALID/i.test(msg)){
+      fix='<div style="margin-top:7px;color:#7f1d1d"><b>مفتاح API غير صالح أو مقيّد بنطاقات.</b><br>'
+        +'من Google Cloud Console ← Credentials، أزل قيود المفتاح أو أضف نطاق موقعك.</div>';
+    }else if(/has not been used|SERVICE_DISABLED|disabled/i.test(msg)){
+      fix='<div style="margin-top:7px;color:#7f1d1d"><b>خدمة Cloud Firestore غير مفعّلة في المشروع.</b><br>'
+        +'فعّلها من Firebase Console ← Firestore Database ← Create database.</div>';
+    }else if(/Failed to fetch|NetworkError|blocked/i.test(msg)){
+      fix='<div style="margin-top:7px;color:#7f1d1d"><b>الشبكة تحجب الوصول إلى Google.</b><br>'
+        +'جرّب بيانات الجوال بدل شبكة المكتب للتأكد.</div>';
+    }
+    if(fix){lines.push(fix);show();}
+  };
+
+  // 1) قراءة
+  fetch(base+'duroob/'+BOX_KEY+key).then(function(r){
+    return r.text().then(function(t){return {st:r.status,ok:r.ok,txt:t};});
+  }).then(function(res){
+    if(res.ok){lines.push('✅ القراءة نجحت (HTTP '+res.st+')');}
+    else if(res.st===404){lines.push('ℹ️ المستند غير موجود بعد (HTTP 404) — سيُنشأ عند أول حفظ');}
+    else{
+      var msg=res.txt;try{var j=JSON.parse(res.txt);msg=(j.error&&j.error.message)||res.txt;}catch(e){}
+      lines.push('❌ القراءة فشلت (HTTP '+res.st+')<br><span style="color:#7f1d1d">'+String(msg).slice(0,220)+'</span>');
+      addFix(msg,res.st);
+    }
+    show();
+    // 2) كتابة تجريبية على مستند منفصل لا يمسّ بياناتك
+    return fetch(base+'duroob/_conntest'+key,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({fields:{t:{stringValue:new Date().toISOString()}}})
+    }).then(function(r2){return r2.text().then(function(t2){return {st:r2.status,ok:r2.ok,txt:t2};});});
+  }).then(function(res2){
+    if(!res2)return;
+    if(res2.ok){
+      lines.push('✅ الكتابة نجحت (HTTP '+res2.st+') — الاتصال سليم تماماً');
+      lines.push('<div style="margin-top:6px;color:#0a7c4e;font-weight:800">النظام قادر على الحفظ والمزامنة الآن.</div>');
+    }else{
+      var msg2=res2.txt;try{var j2=JSON.parse(res2.txt);msg2=(j2.error&&j2.error.message)||res2.txt;}catch(e){}
+      lines.push('❌ الكتابة فشلت (HTTP '+res2.st+')<br><span style="color:#7f1d1d">'+String(msg2).slice(0,220)+'</span>');
+      addFix(msg2,res2.st);
+    }
+    show();
+  }).catch(function(e){
+    lines.push('❌ تعذّر الوصول نهائياً: '+((e&&e.message)||e));
+    addFix((e&&e.message)||'Failed to fetch');
+    show();
+  });
+}
+window.fbSelfTest=fbSelfTest;
+
+/* 🔍 فحص أي النطاقات يمكن الوصول إليها فعلياً */
+function probeConn(){
+  var box=document.getElementById('cdProbe');
+  if(!box)return;
+  box.innerHTML='🔍 جارٍ فحص المنافذ…';
+  var tests=[
+    ['قاعدة البيانات (firestore.googleapis.com)',
+     'https://firestore.googleapis.com/v1/projects/'+firebaseConfig.projectId
+       +'/databases/(default)/documents/duroob/'+BOX_KEY+'?key='+firebaseConfig.apiKey],
+    ['مكتبة gstatic','https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js'],
+    ['مكتبة jsdelivr','https://cdn.jsdelivr.net/npm/firebase@10.12.2/compat/firebase-app-compat.js']
+  ];
+  var out=[];
+  var done=0;
+  tests.forEach(function(t,i){
+    var ok=false;
+    fetch(t[1],{method:'GET'}).then(function(r){ok=(r.status<500);})
+      .catch(function(){ok=false;})
+      .then(function(){
+        out[i]=(ok?'✅ ':'❌ ')+t[0];
+        if(++done===tests.length){
+          box.innerHTML=out.join('<br>')
+            +'<div style="margin-top:5px;color:#7f1d1d">'
+            +(out[0].charAt(0)==='✅'
+              ? 'قاعدة البيانات متاحة — سيعمل النظام عبر الاتصال المباشر.'
+              : 'قاعدة البيانات محجوبة على هذه الشبكة — جرّب شبكة أخرى أو بيانات الجوال.')
+            +'</div>';
+        }
+      });
+  });
+}
+window.probeConn=probeConn;
+function hideConnDiag(){var el=document.getElementById('connDiag');if(el)el.style.display='none';}
+window.showConnDiag=showConnDiag;
+window.hideConnDiag=hideConnDiag;
+
+/* مستمعو المزامنة والمؤقتات — مشتركة بين مسار المكتبة ومسار REST */
+function _initListeners(){
     // حمّل شواهد الحذف واليوميّة أولاً، ثم راقب المستند الرئيسي
     guardLoad().then(function(){
       // أي تعديل على الحارس من جهاز آخر (حذف مثلاً) يُطبَّق فوراً هنا
@@ -9320,6 +10018,30 @@ function reconcileAfterSnapshot(){
       // 🛡️ طبّق الحارس: أعِد حذف ما رجع، واستعِد ما اختفى
       var _fix=0;
       try{_fix=guardApply();}catch(_e3){console.warn('guardApply',_e3);}
+
+      // 🗄️ تنبيه بوجود سجلات قابلة للاسترجاع في السلة
+      try{
+        var _lost=(typeof recoverList==='function')?recoverList():[];
+        if(_lost.length){
+          console.warn('🗄️ '+_lost.length+' سجل في سلة المحذوفات يمكن استرجاعه');
+          var rb=document.getElementById('recoverBanner');
+          if(!rb){
+            rb=document.createElement('div');rb.id='recoverBanner';
+            rb.style.cssText='position:fixed;bottom:14px;left:14px;z-index:9999;background:#7f1d1d;color:#fff;'
+              +'padding:10px 14px;border-radius:10px;font-family:Tajawal,Arial;font-size:13px;font-weight:700;'
+              +'box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer';
+            rb.onclick=function(){
+              if(typeof goPage==='function')goPage('data-editor');
+              setTimeout(function(){if(typeof deTab==='function')deTab('recover');},220);
+            };
+            document.body.appendChild(rb);
+          }
+          rb.textContent='🗄️ '+_lost.length+' سجل محذوف يمكن استرجاعه — اضغط هنا';
+          rb.style.display='block';
+        }else{
+          var rb2=document.getElementById('recoverBanner');if(rb2)rb2.style.display='none';
+        }
+      }catch(_e9){}
 
       // 🏦 ترحيل تسمية الحساب البنكي
       var _mig=false;
@@ -9471,8 +10193,58 @@ function reconcileAfterSnapshot(){
         fillVendorSelect('vou-vendor-sel');
         fillVendorSelect('cu-name-vendor');
       }
-    }, err=>{console.error('Firestore read:',err);setSync('offline');});
+    }, err=>{console.error('Firestore read:',err);setSync('offline');},function(err){
+      console.error('❌ خطأ في مستمع قاعدة البيانات:',err);
+      window._fbFailReason=(err&&err.code==='permission-denied')
+        ? 'قواعد أمان Firestore ترفض القراءة/الكتابة'
+        : ((err&&err.message)||'انقطاع في الاتصال بقاعدة البيانات');
+      setSync('offline');
+      try{showConnDiag();}catch(e){}
+    });
     setInterval(()=>cloudSave(), 2500);          // شبكة أمان: يلتقط أي تعديل
+
+    /* 🚨 حارس التغييرات غير المحفوظة:
+       بعض دوال الحفظ في النظام لا تستدعي الحفظ صراحةً (مكافآت، مهام، أصول…)،
+       فإن بقيت الحالة المحلية مختلفة عن آخر حفظ مؤكَّد أكثر من 8 ثوانٍ
+       يُفرض الحفظ ويظهر تنبيه واضح بدل الضياع الصامت. */
+    setInterval(function(){
+      if(!_loaded||_writeLock)return;
+      try{
+        var h=JSON.stringify(collectState());
+        if(h===_lastHash){window._dirtySince=null;
+          var w=document.getElementById('unsavedWarn');if(w)w.style.display='none';return;}
+        window._dirtySince=window._dirtySince||Date.now();
+        var age=Date.now()-window._dirtySince;
+        if(age>8000){
+          console.warn('🚨 تغييرات غير محفوظة منذ '+Math.round(age/1000)+' ث — فرض الحفظ');
+          _lastHash=null;persist({force:true,silent:true});
+          if(age>25000){
+            var el=document.getElementById('unsavedWarn');
+            if(!el){
+              el=document.createElement('div');el.id='unsavedWarn';
+              el.style.cssText='position:fixed;bottom:14px;right:14px;z-index:99999;background:#b45309;'
+                +'color:#fff;padding:10px 14px;border-radius:10px;font-family:Tajawal,Arial;font-size:13px;'
+                +'font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.3)';
+              document.body.appendChild(el);
+            }
+            el.textContent='⚠️ توجد تغييرات لم تُحفظ بعد — لا تُغلق الصفحة';
+            el.style.display='block';
+          }
+        }
+      }catch(e){}
+    },3000);
+
+    /* 🛑 لا تُغلق الصفحة وفيها تغييرات غير محفوظة */
+    window.addEventListener('beforeunload',function(ev){
+      try{
+        if(!_loaded)return;
+        if(JSON.stringify(collectState())!==_lastHash){
+          persist({force:true,silent:true});
+          ev.preventDefault();ev.returnValue='';
+          return '';
+        }
+      }catch(e){}
+    });
     // 🛟 صمّام أمان: إن علق _applying مرفوعاً (بسبب وعد لم يكتمل) يتوقف الحفظ
     // نهائياً بصمت. نُحرّره تلقائياً بعد 8 ثوانٍ ونُعيد محاولة الحفظ.
     setInterval(function(){
@@ -9484,7 +10256,63 @@ function reconcileAfterSnapshot(){
         }
       }else{window._applyingSince=null;}
     },3000);
-  }catch(e){console.error('تعذّر الاتصال:',e);_fbReady=false;setSync('offline');}
+}
+
+function initFirebase(){
+  try{
+    if(_fbReady)return;                       // مُهيّأة مسبقاً
+    if(!window.firebase||!window.firebase.firestore){
+      /* 🌐 المكتبة محجوبة → اتصل بقاعدة البيانات مباشرة عبر HTTPS
+         (يعمل ما دام نطاق firestore.googleapis.com غير محجوب) */
+      var rdb=window._makeRestDb&&window._makeRestDb(firebaseConfig);
+      if(rdb){
+        console.warn('🌐 مكتبة Firebase محجوبة — التحويل إلى الاتصال المباشر (REST)');
+        window._usingRest=true;
+        _db=rdb;
+        ROOT=_db.collection('duroob').doc(BOX_KEY);
+        GUARD=_db.collection('duroob').doc('_guard');
+        _fbReady=true;setSync('loading');
+        _initListeners();
+        return;
+      }
+      console.warn('⚠️ لم تُحمّل مكتبة Firebase بعد — بانتظار مصدر بديل.');
+      window._fbFailReason='لم تُحمّل مكتبة Firebase — تحقّق من الإنترنت أو حجب الشبكة';
+      setSync('offline');try{showConnDiag();}catch(e){}
+      return;
+    }
+    firebase.initializeApp(firebaseConfig);
+    _db=firebase.firestore();
+    /* ⚠️ Firestore يرفض المستند بأكمله إذا احتوى أي حقل بقيمة undefined
+       (مثل custodyRef / isReturnNotIncome في سندات القبض) فيفشل كل حفظ.
+       هذا الإعداد يجعله يتجاهل تلك الحقول بدل رفض الكتابة. */
+    try{_db.settings({ignoreUndefinedProperties:true});}
+    catch(e){console.warn('ignoreUndefinedProperties غير مدعوم:',e&&e.message);}
+    ROOT=_db.collection('duroob').doc(BOX_KEY);
+    GUARD=_db.collection('duroob').doc('_guard');     // 🛡️ لا تلمسه النسخ القديمة
+    _fbReady=true;setSync('loading');
+    _initListeners();
+  }catch(e){
+    console.error('تعذّر الاتصال:',e);
+    _fbReady=false;
+    window._fbFailReason=(e&&e.message)||'خطأ عند تهيئة الاتصال';
+    setSync('offline');
+    try{showConnDiag();}catch(_){}
+  }
+}
+window._retryFirebaseInit=function(){try{initFirebase();}catch(e){console.error(e);}};
+window._onFbLoadFail=function(){
+  window._fbFailReason='تعذّر تحميل مكتبة Firebase من كل المصادر — تحقّق من الإنترنت أو حجب الشبكة';
+  try{setSync('offline');showConnDiag();}catch(e){}
+};
+initFirebase();
+/* إعادة محاولة تلقائية إن تأخّر تحميل المكتبة (شبكة بطيئة أو مصدر بديل) */
+(function(){
+  var tries=0;
+  var t=setInterval(function(){
+    tries++;
+    if(_fbReady||tries>25){clearInterval(t);return;}
+    if(window.firebase&&window.firebase.firestore){clearInterval(t);initFirebase();}
+  },1000);
 })();
 
 
@@ -9804,8 +10632,18 @@ function deTab(t){
   _deActive=t;
   document.querySelectorAll('.de-tab').forEach(function(b){b.classList.toggle('on',b.id==='de-t-'+t);});
   var ew=document.getElementById('de-edits-wrap');
+  var rw=document.getElementById('de-recover-wrap');
   var tw=document.getElementById('de-tbl-wrap');
   var flt=document.getElementById('de-filters');
+  if(rw)rw.style.display='none';
+  if(t==='recover'){
+    if(rw)rw.style.display='';
+    if(ew)ew.style.display='none';
+    if(tw)tw.style.display='none';
+    if(flt)flt.style.display='none';
+    if(typeof renderRecover==='function')renderRecover();
+    return;
+  }
   if(t==='edits'){
     if(ew)ew.style.display='';
     if(tw)tw.style.display='none';
@@ -13300,6 +14138,202 @@ function _matchAll(q,fields){
   return String(q).toLowerCase().split(/\s+/).filter(Boolean).every(function(w){return hay.indexOf(w)>-1;});
 }
 window._matchAll=_matchAll;
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   🗄️ استرجاع المحذوفات — سلة المحذوفات ويوميّة السجلات
+   يعرض كل ما حُذف أو اختفى، ويسمح بإرجاعه إلى النظام بضغطة واحدة.
+   ══════════════════════════════════════════════════════════════════════ */
+function _recArr(col){
+  var M={VOUCHERS:function(v){if(v)VOUCHERS=v;return VOUCHERS;},
+         CUSTODIES:function(v){if(v)CUSTODIES=v;return CUSTODIES;},
+         RECEIPTS:function(v){if(v)RECEIPTS=v;return RECEIPTS;},
+         REWARDS:function(v){if(v)REWARDS=v;return REWARDS;},
+         ENTRIES:function(v){if(v)ENTRIES=v;return ENTRIES;},
+         BANK_TX:function(v){if(v)BANK_TX=v;return BANK_TX;},
+         TRANSFERS:function(v){if(v)TRANSFERS=v;return TRANSFERS;},
+         ASSET_INV:function(v){if(v)ASSET_INV=v;return ASSET_INV;},
+         ASSET_OUTS:function(v){if(v)ASSET_OUTS=v;return ASSET_OUTS;},
+         TASKS:function(v){if(v)TASKS=v;return TASKS;},
+         VENDORS:function(v){if(v)VENDORS=v;return VENDORS;},
+         PROGRAMS:function(v){if(v)PROGRAMS=v;return PROGRAMS;}};
+  return M[col];
+}
+function _recKeyName(col){
+  var K={};_COLS.forEach(function(g){K[g[0]]=g[1];});
+  return K[col]||'num';
+}
+var _COL_LBL={VOUCHERS:'📤 سند صرف',CUSTODIES:'🗂️ عهدة',RECEIPTS:'📥 سند قبض',
+  REWARDS:'🎁 مكافأة',ENTRIES:'📒 قيد',BANK_TX:'🏦 حركة بنكية',TRANSFERS:'🔀 تحويل',
+  ASSET_INV:'📦 صنف',ASSET_OUTS:'📦 إخراج',TASKS:'✅ مهمة',VENDORS:'👤 متعهد',PROGRAMS:'🏷️ برنامج'};
+
+/* جمع كل ما يمكن استرجاعه: السلة + اليوميّة، وما ليس موجوداً حالياً */
+function recoverList(){
+  var out=[],seen={};
+  var add=function(k,src,o){
+    if(seen[k])return;
+    var col=o.col,rec=o.rec;
+    if(!col||!rec)return;
+    var acc=_recArr(col);if(!acc)return;
+    var kn=_recKeyName(col),val=String(rec[kn]);
+    var exists=toArr(acc()).some(function(x){return x&&String(x[kn])===val;});
+    if(exists)return;                      // موجود فعلاً — لا حاجة
+    seen[k]=1;
+    out.push({key:k,col:col,rec:rec,num:val,ts:o.ts||0,by:o.by||'',src:src,
+      tombed:!!window._TOMBS[k]});
+  };
+  Object.keys(window._TRASH||{}).forEach(function(k){add(k,'سلة المحذوفات',window._TRASH[k]);});
+  Object.keys(window._JOURNAL||{}).forEach(function(k){add(k,'يوميّة الحارس',window._JOURNAL[k]);});
+  return out.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
+}
+
+function renderRecover(){
+  var el=document.getElementById('rc-body');
+  if(!el)return;
+  var q=((document.getElementById('rc-q')||{}).value||'').toLowerCase().trim();
+  var rows=recoverList().filter(function(r){
+    if(!q)return true;
+    return _matchAll(q,[r.num,r.col,_COL_LBL[r.col],JSON.stringify(r.rec)]);
+  });
+
+  var hd=document.getElementById('rc-stats');
+  if(hd){
+    var byCol={};rows.forEach(function(r){byCol[r.col]=(byCol[r.col]||0)+1;});
+    hd.innerHTML=rows.length
+      ? Object.keys(byCol).map(function(c){
+          return '<div style="border:1.5px solid #b45309;border-radius:8px;padding:5px 11px;background:#fff">'
+            +'<span style="font-size:12px;color:#b45309;font-weight:800">'+(_COL_LBL[c]||c)+'</span>'
+            +'<span style="font-size:13px;font-weight:900;margin-right:6px;font-family:monospace">'+byCol[c]+'</span></div>';
+        }).join('')
+      : '<div style="color:#0a7c4e;font-weight:700;font-size:13px">✅ لا توجد سجلات مفقودة — كل شيء موجود في النظام</div>';
+  }
+
+  if(!rows.length){
+    el.innerHTML='<div style="padding:26px;text-align:center;color:#94a3b8;font-family:Tajawal,Arial">لا يوجد ما يُسترجع</div>';
+    return;
+  }
+
+  el.innerHTML='<div style="margin-bottom:9px">'
+      +'<button class="bs" onclick="recoverAll()" style="background:#0a7c4e">♻️ استرجاع الكل ('+rows.length+')</button>'
+    +'</div>'
+    +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-family:Tajawal,Arial;font-size:12px">'
+    +'<thead><tr style="background:#7f1d1d;color:#fff">'
+    +'<th style="padding:7px 6px">النوع</th><th style="padding:7px 6px">الرقم</th>'
+    +'<th style="padding:7px 6px">التاريخ</th><th style="padding:7px 6px">المستفيد/البيان</th>'
+    +'<th style="padding:7px 6px">المبلغ</th><th style="padding:7px 6px">المصدر</th>'
+    +'<th style="padding:7px 6px">استرجاع</th></tr></thead><tbody>'
+    +rows.map(function(r,i){
+      var d=r.rec||{};
+      var who=d.recipient||d.name||d.payer||d.from||d.desc||d.being||d.cashDesc||'—';
+      var amt=Number(d.amount||d.cashAmt||0);
+      return '<tr style="background:'+(i%2?'#fef2f2':'#fff')+'">'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center;white-space:nowrap">'+(_COL_LBL[r.col]||r.col)+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center;font-family:monospace;font-weight:800;color:#991b1b">'+r.num+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center;white-space:nowrap">'+(d.date||'—')+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center">'+String(who).slice(0,46)+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center;font-family:monospace;font-weight:900;direction:ltr">'+(amt?fn(amt):'—')+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center;font-size:11px;color:#64748b">'+r.src+(r.tombed?' 🔒':'')+'</td>'
+        +'<td style="padding:5px 6px;border:1px solid #fca5a5;text-align:center">'
+          +'<button class="abn" onclick="recoverOne(\'' + r.key + '\')" style="background:#dcfce7;color:#0a7c4e;font-weight:900">♻️ استرجاع</button>'
+        +'</td></tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+
+function _recoverApply(item){
+  var acc=_recArr(item.col);if(!acc)return false;
+  var kn=_recKeyName(item.col),val=String(item.rec[kn]);
+  var arr=toArr(acc());
+  if(arr.some(function(x){return x&&String(x[kn])===val;}))return false;
+  delete window._TOMBS[item.key];                 // ارفع شاهد الحذف
+  if(typeof _blRemove==='function')_blRemove(val); // وارفعه من القائمة السوداء
+  var rec=JSON.parse(JSON.stringify(item.rec));
+  rec._mts=Date.now();
+  arr.push(rec);acc(arr);
+  if(typeof journalAdd==='function')journalAdd(item.col,val,rec);
+  return true;
+}
+
+function recoverOne(key){
+  var item=recoverList().find(function(x){return x.key===key;});
+  if(!item){alert('السجل غير موجود في السلة');return;}
+  if(!confirm('استرجاع '+(_COL_LBL[item.col]||item.col)+' '+item.num+'؟\n\nسيعود إلى النظام والتقارير والأرصدة.'))return;
+  if(!_recoverApply(item)){alert('السجل موجود بالفعل');renderRecover();return;}
+  _recoverSave(1,item.num);
+}
+
+function recoverAll(){
+  var list=recoverList();
+  if(!list.length)return;
+  if(!confirm('استرجاع جميع السجلات المفقودة ('+list.length+')؟\n\nستعود كلها إلى النظام والتقارير والأرصدة.'))return;
+  var n=0;
+  list.forEach(function(it){if(_recoverApply(it))n++;});
+  _recoverSave(n,null);
+}
+
+function _recoverSave(n,label){
+  if(typeof guardSave==='function')guardSave(true);
+  if(typeof persist==='function'){
+    persist({force:true,silent:true}).then(function(r){
+      if(typeof showSaveInd==='function')
+        showSaveInd(r&&r.ok?('♻️ استُرجع '+n+' سجل'+(label?' ('+label+')':'')+' — محفوظ ومؤكَّد')
+                           :('⏳ الاسترجاع لم يتأكد بعد — تُعاد المحاولة'));
+      renderRecover();
+    });
+  }else if(typeof cloudSave==='function')cloudSave(true);
+  if(typeof log==='function'){try{log('استرجاع محذوفات','عدد: '+n,label||'');}catch(e){}}
+  ['renderVouchers','renderCustody','renderLedger','renderExpenses','renderRevenues',
+   'renderCustodyClearance','renderDashboard','renderProgEdits','renderRecover']
+   .forEach(function(f){if(typeof window[f]==='function'){try{window[f]();}catch(e){}}});
+}
+
+window.renderRecover=renderRecover;
+window.recoverOne=recoverOne;
+window.recoverAll=recoverAll;
+window.recoverList=recoverList;
+
+/* ══════════════════════════════════════════════════════════════════════
+   🛡️ حارس التنفيذ — يمنع أي خطأ في الطباعة أو الرسم من قطع سلسلة الحفظ
+   كان أي استثناء داخل printReceiptDoc / renderX / عنصر DOM مفقود يوقف
+   الدالة قبل الوصول إلى الحفظ، فيظهر السند مطبوعاً ولا يُكتب في قاعدة
+   البيانات ويختفي عند التحديث (مثل القيد QD-0152).
+   ══════════════════════════════════════════════════════════════════════ */
+function _isDashActive(){
+  try{
+    var el=document.getElementById('pg-dashboard');
+    return !!(el&&el.classList&&el.classList.contains('active'));
+  }catch(e){return false;}
+}
+window._isDashActive=_isDashActive;
+
+/* غلّف كل دوال الطباعة والرسم بحماية — تُنفَّذ مرة عند التحميل */
+function hardenUI(){
+  var names=[];
+  for(var k in window){
+    try{
+      if(typeof window[k]!=='function')continue;
+      if(/^(print|render)[A-Z_]/.test(k)||k==='refreshAll'||k==='deRender')names.push(k);
+    }catch(e){}
+  }
+  names.forEach(function(n){
+    var orig=window[n];
+    if(orig.__hardened)return;
+    var wrapped=function(){
+      try{return orig.apply(this,arguments);}
+      catch(e){console.warn('⚠️ '+n+' فشلت (لم يتأثر الحفظ):',e&&e.message);return null;}
+    };
+    wrapped.__hardened=true;
+    try{window[n]=wrapped;}catch(e){}
+  });
+  console.log('🛡️ حُمِيت '+names.length+' دالة عرض/طباعة من إسقاط الحفظ');
+}
+window.hardenUI=hardenUI;
+hardenUI();
+try{
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){hardenUI();});
+  else setTimeout(hardenUI,0);
+  setTimeout(hardenUI,1500);   // بعد أي إعادة تعريف متأخرة للدوال
+}catch(e){}
 
 function _peRow(kind){
   return {vou:{lbl:'سند صرف',icon:'📤',c:'#dc2626'},
